@@ -26,7 +26,7 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;bor
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="إدارة الآجر">
-<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 
 </head>
 <body>
@@ -426,6 +426,23 @@ function renderHome(){
    <strong>الشحنة #${s.shipmentNo||'-'}</strong> — ${s.customerId!=null?(state.customers[s.customerId]?.name||'-'):s.customer} — ${s.type} — ${qfmt(s.qty)} — دين ${money(s.debt)}
    <div class="small muted">${state.factories[s.factory]?.name||''} • شحنة المصنع رقم ${s.factoryShipmentNo||'-'} • ${s.createdAt?new Date(s.createdAt).toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'-'} • السائق: ${s.carrier||'-'} • اللوحة: ${s.truck||'-'}</div>
  </div>`).join(''):'<div class="muted">لا توجد شحنات بعد.</div>';
+}
+
+
+function syncStockForm(){
+ const type=$('stockType').value;
+ const pallets=num($('stockPallets').value);
+ const pieces=piecesFromPallets(type,pallets);
+ $('stockQty').value=pieces;
+ const p=$('stockAddPreview');
+ if(p) p.innerHTML=`${pallets.toFixed(2)} باليط × ${PALLET_SIZE[type]} حبة = <strong>${qfmt(pieces)}</strong>`;
+}
+
+function syncShipmentPallets(){
+ const type=$('brickType').value;
+ const pallets=num($('shipPallets').value);
+ $('qty').value=piecesFromPallets(type,pallets);
+ preview();
 }
 
 function renderAll(){
