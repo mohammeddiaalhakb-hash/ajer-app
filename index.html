@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>إدارة الآجر والنقل</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--accent:#2563eb;--danger:#b91c1c}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}.side{background:var(--card);border-left:1px solid var(--border);padding:16px;position:sticky;top:0;height:100vh}
+.side h1{font-size:18px;margin:0 0 16px}.nav{display:grid;gap:8px}.nav button,.btn{min-height:44px;border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer}
+.nav button{text-align:right}.nav button.active,.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+main{padding:18px;min-width:0}.view{display:none}.view.active{display:block}.grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}.muted{color:var(--muted)}.stat strong{display:block;font-size:22px;margin-top:4px}
+label{display:grid;gap:6px;font-size:14px}input,select{min-height:44px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font:inherit;background:#fff;width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.list{display:grid;gap:10px;margin-top:12px}.item{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff}
+.item h3{margin:0 0 6px;font-size:16px}.small{font-size:13px}.ok{color:#166534}.danger{color:var(--danger)}
+table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:right;font-size:14px}th{background:#f9fafb}
+.scroll{overflow:auto}.section-title{margin:0 0 12px;font-size:18px}.notice{padding:10px 12px;border:1px dashed var(--border);border-radius:10px;background:#fafafa}
+@media(max-width:850px){.app{grid-template-columns:1fr}.side{position:static;height:auto;border-left:0;border-bottom:1px solid var(--border)}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.g4,.g3,.g2{grid-template-columns:1fr}main{padding:12px}}
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="إدارة الآجر">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <h1>إدارة الآجر والنقل</h1>
+    <div class="nav">
+      <button data-view="home" class="active">الرئيسية</button>
+      <button data-view="factories">المصانع والمخزون</button>
+      <button data-view="shipments">الشحنات</button>
+      <button data-view="customerManage">إدارة الزبائن</button><button data-view="customers">حساب الزبائن</button>
+      <button data-view="carrierManage">إدارة الناقلين</button><button data-view="carriers">حساب الناقلين</button>
+      <button data-view="profit">الفائدة</button>
+      <button data-view="backup">نسخة احتياطية</button>
+    </div>
+  </aside>
+
+  <main>
+    <section id="home" class="view active">
+      <div class="grid g4">
+        <div class="card stat"><span class="muted">ديون الزبائن</span><strong id="sCustomer">0.00 دج</strong><button id="toggleCustomerDebt" type="button" class="btn" style="margin-top:10px;width:100%">عرض ديون كل زبون</button></div>
+        <div class="card stat"><span class="muted">مقدمات الناقلين</span><strong id="sAdvance">0.00 دج</strong></div>
+        <div class="card stat"><span class="muted">ما يدفعه الزبائن للناقلين</span><strong id="sArrival">0.00 دج</strong></div>
+        <div class="card stat"><span class="muted">فائدة الآجر</span><strong id="sProfit">0.00 دج</strong></div><div class="card stat"><span class="muted">إجمالي عدد الشحنات</span><strong id="sShipmentCount">0</strong></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">عدد الشحنات حسب المصنع</h2>
+        <div id="homeFactoryShipmentCounts" class="grid g2"></div>
+      </div>
+      <div id="homeCustomerDebtDetails" class="card" style="margin-top:12px;display:none">
+        <h2 class="section-title">ديون الزبائن بالتفصيل</h2>
+        <div id="homeCustomerDebtRows" class="list"></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">قاعدة الحساب</h2>
+        <div class="notice small">السعر المتفق عليه مع الزبون شامل المصاريف. إذا دُفع للناقل مقدمًا، يدفع الزبون له فقط الباقي عند الوصول. ما يتبقى من السعر الشامل بعد دفع الناقل يدخل دينًا على الزبون. الفائدة تحسب من الآجر فقط.</div>
+      </div>
+      <div class="card" style="margin-top:12px"><h2 class="section-title">آخر الشحنات</h2><div id="recent" class="list"></div></div>
+    </section>
+
+    <section id="factories" class="view">
+      <div class="card">
+        <h2 class="section-title">إضافة مصنع</h2>
+        <form id="factoryForm" class="grid g3">
+          <label>اسم المصنع<input id="newFactory" required></label>
+          <label>سعر آجر 12<input id="p12" type="number" step="0.01" min="0" value="28.45" required></label>
+          <label>سعر آجر 8<input id="p8" type="number" step="0.01" min="0" value="24.80" required></label>
+          <div><button class="btn primary" type="submit">إضافة المصنع</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">إضافة مخزون</h2>
+        <form id="stockForm" class="grid g4">
+          <label>المصنع<select id="stockFactory"></select></label>
+          <label>نوع الآجر<select id="stockType"><option>آجر 12</option><option>آجر 8</option></select></label>
+          <label>عدد الباليطات<input id="stockPallets" type="number" min="0" step="0.01" value="40" required></label>
+          <label>عدد الحبات تلقائيًا<input id="stockQty" type="number" readonly></label>
+          <label>سعر المصنع للحبة<input id="stockPrice" type="number" min="0" step="0.01" value="28.45" required></label>
+          <div><button class="btn primary" type="submit">إضافة للمخزون</button></div>
+        </form>
+        <div id="stockAddPreview" class="notice small" style="margin-top:10px"></div>
+      </div>
+
+      <div id="factoryCards" class="list"></div>
+    </section>
+
+    <section id="shipments" class="view">
+      <div class="card">
+        <h2 class="section-title">شحنة جديدة</h2>
+        <form id="shipForm" class="grid g4">
+          <label>الزبون<select id="customer"></select></label>
+          <label>المصنع<select id="shipFactory"></select></label>
+          <label>نوع الآجر<select id="brickType"><option>آجر 12</option><option>آجر 8</option></select></label>
+          <label>عدد الباليطات للشحنة<input id="shipPallets" type="number" min="0.01" step="0.01" value="1" required></label><label>عدد الحبات تلقائيًا<input id="qty" type="number" readonly></label>
+          <label>سعر المصنع للوحدة<input id="buyPrice" readonly></label>
+          <label>السعر الإجمالي الشامل للزبون<input id="inclusive" type="number" min="0" step="0.01" value="420000" required></label>
+          <label>حق النقل الكامل<input id="transport" type="number" min="0" step="0.01" value="20000" required></label>
+          <label>مقدم للناقل قبل الانطلاق<input id="advance" type="number" min="0" step="0.01" value="0"></label>
+          <label>الناقل المتاح<select id="carrier"></select></label>
+          <label>هاتف الناقل<input id="carrierPhone" readonly></label>
+          <label>لوحة الشاحنة<input id="truck" readonly></label>
+        </form>
+        <div id="preview" class="notice" style="margin-top:12px"></div>
+        <div class="row" style="margin-top:12px"><button id="confirmShipment" class="btn primary" type="button">تأكيد الشحنة</button><span id="shipMsg" class="small"></span></div>
+      </div>
+      <div class="card" style="margin-top:12px"><h2 class="section-title">سجل الشحنات</h2><div class="scroll"><table><thead><tr><th>رقم الشحنة</th><th>التاريخ والوقت</th><th>الزبون</th><th>المصنع</th><th>النوع</th><th>الكمية</th><th>اسم السائق</th><th>لوحة الشاحنة</th><th>الشامل</th><th>دفع للناقل</th><th>دين الزبون</th><th>الفائدة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="shipTable"></tbody></table></div></div>
+    </section>
+
+
+    <section id="customerManage" class="view">
+      <div class="card">
+        <h2 class="section-title">إدارة الزبائن</h2>
+        <form id="customerForm" class="grid g3">
+          <label>اسم الزبون<input id="customerName" required></label>
+          <label>رقم الهاتف<input id="customerPhone" inputmode="tel" placeholder="مثال: 0550 00 00 00" required></label>
+          <div class="row" style="align-items:end">
+            <button id="saveCustomerBtn" class="btn primary" type="submit">إضافة الزبون</button>
+            <button id="cancelCustomerEdit" class="btn" type="button" style="display:none">إلغاء التعديل</button>
+          </div>
+        </form>
+        <div id="customerManageRows" class="list"></div>
+      </div>
+    </section>
+    <section id="customers" class="view"><div class="card"><h2 class="section-title">حساب الزبائن</h2><div id="customerCards" class="list"></div></div></section>
+
+    <section id="carrierManage" class="view">
+      <div class="card">
+        <h2 class="section-title">إدارة الناقلين</h2>
+        <form id="carrierForm" class="grid g4">
+          <label>اسم الناقل / السائق<input id="carrierManageName" required></label>
+          <label>رقم الهاتف<input id="carrierManagePhone" inputmode="tel" placeholder="مثال: 0550 00 00 00" required></label>
+          <label>لوحة الشاحنة<input id="carrierManagePlate" required></label>
+          <div class="row" style="align-items:end">
+            <button id="saveCarrierBtn" class="btn primary" type="submit">إضافة الناقل</button>
+            <button id="cancelCarrierEdit" class="btn" type="button" style="display:none">إلغاء التعديل</button>
+          </div>
+        </form>
+        <div id="carrierManageRows" class="list"></div>
+      </div>
+    </section>
+    <section id="carriers" class="view"><div class="card"><h2 class="section-title">حساب السائقين / الناقلين</h2><div id="carrierCards" class="list"></div></div></section>
+    <section id="profit" class="view"><div class="card"><h2 class="section-title">الفائدة من الآجر فقط</h2><div id="profitCards" class="list"></div></div></section>
+
+    <section id="backup" class="view">
+      <div class="card">
+        <h2 class="section-title">النسخة الاحتياطية</h2>
+        <p class="muted">البيانات محفوظة على هذا الجهاز. يمكنك تنزيل نسخة احتياطية واستعادتها لاحقًا.</p>
+        <div class="row">
+          <button id="exportBtn" class="btn primary" type="button">تنزيل نسخة احتياطية</button>
+          <label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">استعادة نسخة<input id="importFile" type="file" accept="application/json" style="display:none"></label>
+          <button id="resetBtn" class="btn" type="button">مسح كل البيانات</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const KEY='ajer_transport_app_v7';
+const money=v=>new Intl.NumberFormat('ar-DZ',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.round((Number(v)||0)*100)/100)+' دج';
+const qfmt=v=>new Intl.NumberFormat('ar-DZ').format(v)+' آجرة';
+const num=v=>Math.max(0,parseFloat(v)||0);
+const int=v=>Math.max(0,Math.floor(Number(v)||0));
+const r2=v=>Math.round((Number(v)+Number.EPSILON)*100)/100;
+const PALLET_SIZE={'آجر 12':116,'آجر 8':176};
+const palletsFromPieces=(type,pieces)=>pieces/PALLET_SIZE[type];
+const piecesFromPallets=(type,pallets)=>Math.round((Number(pallets)||0)*PALLET_SIZE[type]);
+
+function defaultState(){return{factories:[],customers:[],carriers:[],shipments:[]}}
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY))||defaultState()}catch(e){state=defaultState()}
+if(!Array.isArray(state.customers)) state.customers=[];
+if(!Array.isArray(state.carriers)) state.carriers=[];
+function normalizeShipmentNumbers(){
+  const counters={};
+  state.shipments.forEach((s,i)=>{
+    if(!s.shipmentNo) s.shipmentNo=i+1;
+    const fi=Number(s.factory)||0;
+    counters[fi]=(counters[fi]||0)+1;
+    if(!s.factoryShipmentNo) s.factoryShipmentNo=counters[fi];
+  });
+}
+normalizeShipmentNumbers();
+
+function normalizeCarrierAvailability(){
+ state.carriers.forEach(c=>c.available=true);
+ state.shipments.forEach(s=>{
+   if((s.status||'في مهمة')==='في مهمة' && s.carrierId!=null && state.carriers[s.carrierId]){
+     state.carriers[s.carrierId].available=false;
+   }
+ });
+}
+normalizeCarrierAvailability();
+
+const save=()=>localStorage.setItem(KEY,JSON.stringify(state));
+function nextShipmentNo(){
+  return state.shipments.reduce((mx,s)=>Math.max(mx,Number(s.shipmentNo)||0),0)+1;
+}
+function nextFactoryShipmentNo(factoryIndex){
+  return state.shipments.filter(s=>s.factory===factoryIndex).reduce((mx,s)=>Math.max(mx,Number(s.factoryShipmentNo)||0),0)+1;
+}
+const $=id=>document.getElementById(id);
+
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+ b.classList.add('active');
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+ $(b.dataset.view).classList.add('active');
+}));
+
+function fillFactories(){
+ ['stockFactory','shipFactory'].forEach(id=>{
+   const el=$(id), old=el.value;
+   el.innerHTML=state.factories.length
+     ? state.factories.map((f,i)=>`<option value="${i}">${f.name}</option>`).join('')
+     : '<option value="">أضف مصنعًا أولًا</option>';
+   if(state.factories[Number(old)]) el.value=old;
+ });
+}
+
+
+function fillCustomers(){
+ const el=$('customer'), old=el.value;
+ el.innerHTML=state.customers.length
+   ? state.customers.map((c,i)=>`<option value="${i}">${c.name}${c.phone?' — '+c.phone:''}</option>`).join('')
+   : '<option value="">أضف زبونًا أولًا</option>';
+ if(state.customers[Number(old)]) el.value=old;
+}
+
+function fillCarriers(){
+ const el=$('carrier'), old=el.value;
+ const available=state.carriers.map((c,i)=>({...c,index:i})).filter(c=>c.available!==false);
+ el.innerHTML=available.length
+   ? available.map(c=>`<option value="${c.index}">${c.name} — ${c.plate}</option>`).join('')
+   : '<option value="">لا يوجد ناقل متاح حاليًا</option>';
+ if(available.some(c=>String(c.index)===String(old))) el.value=old;
+ syncCarrierDetails();
+}
+
+function syncCarrierDetails(){
+ const value=$('carrier').value;
+ if(value===''){
+   if($('carrierPhone')) $('carrierPhone').value='';
+   if($('truck')) $('truck').value='';
+   return;
+ }
+ const c=state.carriers[Number(value)];
+ if($('carrierPhone')) $('carrierPhone').value=c?.phone||'';
+ if($('truck')) $('truck').value=c?.plate||'';
+}
+function currentStock(){
+ const fi=$('shipFactory').value;
+ if(fi==='') return null;
+ const f=state.factories[Number(fi)];
+ return f ? f.stocks[$('brickType').value] : null;
+}
+
+function syncBuy(){
+ const s=currentStock();
+ $('buyPrice').value=s?s.price.toFixed(2):'0.00';
+ preview();
+}
+
+function calc(){
+ const quantity=int($('qty').value);
+ const buy=num($('buyPrice').value);
+ const inclusive=num($('inclusive').value);
+ const transport=num($('transport').value);
+ const advance=Math.min(num($('advance').value),transport);
+ const arrival=r2(Math.max(0,transport-advance));
+ const debt=r2(Math.max(0,inclusive-arrival));
+ const factoryCost=r2(quantity*buy);
+ const brickRevenue=r2(Math.max(0,inclusive-transport));
+ const profit=r2(brickRevenue-factoryCost);
+ return {quantity,buy,inclusive,transport,advance,arrival,debt,factoryCost,brickRevenue,profit};
+}
+
+function preview(){
+ const c=calc();
+ $('preview').innerHTML=`السعر الشامل: <strong>${money(c.inclusive)}</strong> | مقدم الناقل: <strong>${money(c.advance)}</strong> | يدفع الزبون للناقل عند الوصول: <strong>${money(c.arrival)}</strong> | دين الزبون: <strong>${money(c.debt)}</strong> | فائدة الآجر: <strong>${money(c.profit)}</strong>`;
+}
+
+function renderFactories(){
+ $('factoryCards').innerHTML=state.factories.length?state.factories.map((f,fi)=>`
+ <div class="item">
+   <h3>${f.name}</h3>
+   <div class="grid g2">
+   ${['آجر 12','آجر 8'].map(t=>{const s=f.stocks[t], ps=PALLET_SIZE[t], pallets=palletsFromPieces(t,s.qty);return `
+     <div class="notice">
+       <strong>${t}</strong>
+       <div class="small muted" style="margin-top:4px">كل باليط = ${ps} حبة</div>
+       <div class="grid g2" style="margin-top:8px">
+         <label>عدد الباليطات
+           <input type="number" min="0" step="0.01" value="${pallets.toFixed(2)}" data-edit-stock-pallets="${fi}" data-type="${t}">
+         </label>
+         <label>عدد الحبات
+           <input type="number" min="0" step="1" value="${s.qty}" data-edit-stock-qty="${fi}" data-type="${t}">
+         </label>
+         <label>سعر المصنع للحبة
+           <input type="number" min="0" step="0.01" value="${Number(s.price).toFixed(2)}" data-edit-stock-price="${fi}" data-type="${t}">
+         </label>
+       </div>
+       <div class="small" style="margin-top:8px">قيمة المخزون: <strong>${money(s.qty*s.price)}</strong></div>
+       <div class="row" style="margin-top:8px">
+         <button type="button" class="btn primary" data-save-stock="${fi}" data-type="${t}">حفظ التعديل</button>
+         <button type="button" class="btn" data-minus-pallet="${fi}" data-type="${t}">- 1 باليط</button>
+         <button type="button" class="btn" data-plus-pallet="${fi}" data-type="${t}">+ 1 باليط</button>
+       </div>
+     </div>`}).join('')}
+   </div>
+ </div>`).join(''):'<div class="muted">لا يوجد مصنع بعد. أضف مصنعًا أولًا ثم أدخل مخزونه الحقيقي.</div>';
+}
+
+function renderShipments(){
+ $('shipTable').innerHTML=state.shipments.slice().reverse().map(s=>`
+ <tr><td><strong>#${s.shipmentNo||'-'}</strong></td><td>${s.createdAt?new Date(s.createdAt).toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'-'}</td><td>${s.customerId!=null?(state.customers[s.customerId]?.name||'-'):s.customer}</td><td>${state.factories[s.factory]?.name||''}</td><td>${s.type}</td><td>${qfmt(s.qty)}</td><td>${s.carrier||'-'}</td><td>${s.truck||'-'}</td><td>${money(s.inclusive)}</td><td>${money(s.arrival)}</td><td>${money(s.debt)}</td><td>${money(s.profit)}</td><td>${s.status||'في مهمة'}</td><td>${(s.status||'في مهمة')==='في مهمة'?`<button type="button" class="btn primary" data-complete-shipment="${s.id}">تم التسليم</button>`:'-'}</td></tr>`).join('');
+}
+
+
+function renderCustomerManage(){
+ $('customerManageRows').innerHTML=state.customers.length?state.customers.map((c,i)=>`
+   <div class="item">
+     <div class="row" style="justify-content:space-between">
+       <div>
+         <h3>${c.name}</h3>
+         <div class="small muted">الهاتف: ${c.phone||'-'}</div>
+       </div>
+       <div class="row">
+         <button type="button" class="btn" data-edit-customer="${i}">تعديل</button>
+         <button type="button" class="btn" data-delete-customer="${i}">حذف</button>
+       </div>
+     </div>
+   </div>`).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
+}
+function renderCustomers(){
+ const ids=[...new Set(state.shipments.map(s=>s.customerId!=null?s.customerId:s.customer).filter(v=>v!==undefined&&v!==null&&v!==''))];
+ $('customerCards').innerHTML=ids.length?ids.map(id=>{
+   const c=typeof id==='number'?state.customers[id]:null;
+   const name=c?.name || String(id);
+   const phone=c?.phone || '';
+   const ss=state.shipments.filter(s=>(s.customerId!=null?s.customerId:s.customer)===id);
+   const inclusive=ss.reduce((a,s)=>a+s.inclusive,0);
+   const arrival=ss.reduce((a,s)=>a+s.arrival,0);
+   const debt=ss.reduce((a,s)=>a+s.debt,0);
+   return `<div class="item"><h3>${name}</h3><div class="small muted">${phone?`الهاتف: ${phone}`:''}</div><div class="small">إجمالي الشحنات: <strong>${money(inclusive)}</strong></div><div class="small">دفع للناقلين عند الوصول: <strong>${money(arrival)}</strong></div><div class="small">الدين المسجل: <strong>${money(debt)}</strong></div></div>`;
+ }).join(''):'<div class="muted">لا توجد حسابات زبائن بعد.</div>';
+}
+
+
+function renderCarrierManage(){
+ $('carrierManageRows').innerHTML=state.carriers.length?state.carriers.map((c,i)=>`
+   <div class="item">
+     <div class="row" style="justify-content:space-between">
+       <div>
+         <h3>${c.name}</h3>
+         <div class="small muted">الهاتف: ${c.phone||'-'} • اللوحة: ${c.plate||'-'}</div>
+         <div class="small ${c.available===false?'danger':'ok'}">الحالة: <strong>${c.available===false?'في مهمة':'متاح'}</strong></div>
+       </div>
+       <div class="row">
+         <button type="button" class="btn" data-edit-carrier="${i}">تعديل</button>
+         <button type="button" class="btn" data-toggle-carrier="${i}">${c.available===false?'جعل متاح':'جعله في مهمة'}</button>
+         <button type="button" class="btn" data-delete-carrier="${i}">حذف</button>
+       </div>
+     </div>
+   </div>`).join(''):'<div class="muted">لا يوجد ناقلون بعد.</div>';
+}
+function renderCarriers(){
+ const ids=[...new Set(state.shipments.map(s=>s.carrierId!=null?s.carrierId:s.carrier).filter(v=>v!==undefined&&v!==null&&v!==''))];
+ $('carrierCards').innerHTML=ids.length?ids.map(id=>{
+   const c=typeof id==='number'?state.carriers[id]:null;
+   const name=c?.name || String(id);
+   const phone=c?.phone || '';
+   const plate=c?.plate || '';
+   const ss=state.shipments.filter(s=>(s.carrierId!=null?s.carrierId:s.carrier)===id);
+   const total=ss.reduce((a,s)=>a+s.transport,0);
+   const adv=ss.reduce((a,s)=>a+s.advance,0);
+   const arr=ss.reduce((a,s)=>a+s.arrival,0);
+   return `<div class="item"><h3>${name}</h3><div class="small muted">${phone?`الهاتف: ${phone}`:''}${plate?` • اللوحة: ${plate}`:''}</div><div class="small">حق النقل الكامل: <strong>${money(total)}</strong></div><div class="small">مدفوع قبل الانطلاق: <strong>${money(adv)}</strong></div><div class="small">دفع الزبائن عند الوصول: <strong>${money(arr)}</strong></div></div>`;
+ }).join(''):'<div class="muted">لا توجد حسابات ناقلين بعد.</div>';
+}
+
+function renderProfit(){
+ const total=state.shipments.reduce((a,s)=>a+s.profit,0);
+ $('profitCards').innerHTML=`<div class="item"><h3>إجمالي الفائدة</h3><strong style="font-size:24px">${money(total)}</strong></div>`+
+ state.shipments.slice().reverse().map(s=>`<div class="item"><div class="small">${s.customer} — ${s.type} — ${qfmt(s.qty)}</div><strong>${money(s.profit)}</strong></div>`).join('');
+}
+
+function renderHome(){
+ $('sCustomer').textContent=money(state.shipments.reduce((a,s)=>a+s.debt,0));
+ $('sAdvance').textContent=money(state.shipments.reduce((a,s)=>a+s.advance,0));
+ $('sArrival').textContent=money(state.shipments.reduce((a,s)=>a+s.arrival,0));
+ $('sProfit').textContent=money(state.shipments.reduce((a,s)=>a+s.profit,0));
+ if($('sShipmentCount')) $('sShipmentCount').textContent=state.shipments.length;
+
+ const customerIds=[...new Set(state.shipments.map(s=>s.customerId!=null?s.customerId:s.customer).filter(v=>v!==undefined&&v!==null&&v!==''))];
+ $('homeCustomerDebtRows').innerHTML=customerIds.length?customerIds.map(id=>{
+   const c=typeof id==='number'?state.customers[id]:null;
+   const name=c?.name || String(id);
+   const debt=state.shipments.filter(s=>(s.customerId!=null?s.customerId:s.customer)===id).reduce((a,s)=>a+s.debt,0);
+   return `<div class="item row" style="justify-content:space-between">
+     <div><strong>${name}</strong>${c?.phone?`<div class="small muted">${c.phone}</div>`:''}</div>
+     <span>الدين: <strong>${money(debt)}</strong></span>
+   </div>`;
+ }).join(''):'<div class="muted">لا توجد ديون زبائن بعد.</div>';
+
+ $('homeFactoryShipmentCounts').innerHTML=state.factories.length?state.factories.map((f,fi)=>{
+   const ss=state.shipments.filter(s=>s.factory===fi);
+   const last=ss.reduce((mx,s)=>Math.max(mx,Number(s.factoryShipmentNo)||0),0);
+   return `<div class="item"><strong>${f.name}</strong>
+     <div class="small">عدد الشحنات: <strong>${ss.length}</strong></div>
+     <div class="small muted">آخر رقم شحنة للمصنع: ${last||0}</div>
+   </div>`;
+ }).join(''):'<div class="muted">لا توجد مصانع بعد.</div>';
+
+ $('recent').innerHTML=state.shipments.length?state.shipments.slice(-5).reverse().map(s=>`<div class="item">
+   <strong>الشحنة #${s.shipmentNo||'-'}</strong> — ${s.customerId!=null?(state.customers[s.customerId]?.name||'-'):s.customer} — ${s.type} — ${qfmt(s.qty)} — دين ${money(s.debt)}
+   <div class="small muted">${state.factories[s.factory]?.name||''} • شحنة المصنع رقم ${s.factoryShipmentNo||'-'} • ${s.createdAt?new Date(s.createdAt).toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'-'} • السائق: ${s.carrier||'-'} • اللوحة: ${s.truck||'-'}</div>
+ </div>`).join(''):'<div class="muted">لا توجد شحنات بعد.</div>';
+}
+
+function renderAll(){
+ fillFactories(); fillCustomers(); fillCarriers(); renderFactories(); renderCustomerManage(); renderCarrierManage(); renderShipments(); renderCustomers(); renderCarriers(); renderProfit(); renderHome(); syncBuy(); syncStockForm(); syncShipmentPallets();
+}
+
+$('factoryForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const name=$('newFactory').value.trim();
+ if(!name)return;
+ if(state.factories.some(f=>f.name===name)){alert('هذا المصنع موجود مسبقًا');return}
+ state.factories.push({name,stocks:{'آجر 12':{qty:0,price:r2(num($('p12').value))},'آجر 8':{qty:0,price:r2(num($('p8').value))}}});
+ save(); e.target.reset(); $('p12').value='28.45'; $('p8').value='24.80'; renderAll();
+});
+
+$('stockForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const f=state.factories[Number($('stockFactory').value)];
+ const t=$('stockType').value, add=piecesFromPallets(t,num($('stockPallets').value)), price=r2(num($('stockPrice').value));
+ if(!f){alert('أضف مصنعًا أولًا.');return}
+ if(add<1)return;
+ const s=f.stocks[t], oldValue=s.qty*s.price;
+ s.qty+=add;
+ s.price=s.qty?r2((oldValue+add*price)/s.qty):price;
+ save(); renderAll();
+});
+
+$('shipFactory').addEventListener('change',syncBuy);
+$('carrier').addEventListener('change',syncCarrierDetails);
+['inclusive','transport','advance'].forEach(id=>$(id).addEventListener('input',preview));
+
+$('confirmShipment').addEventListener('click',()=>{
+ const customerId=$('customer').value===''?null:Number($('customer').value), carrierId=$('carrier').value===''?null:Number($('carrier').value), carrierObj=carrierId===null?null:state.carriers[carrierId], carrier=carrierObj?.name||'', truck=carrierObj?.plate||'';
+ const fi=Number($('shipFactory').value), type=$('brickType').value, stock=state.factories[fi]?.stocks[type], c=calc();
+ $('shipMsg').textContent='';
+ if(!state.factories.length){$('shipMsg').textContent='أضف مصنعًا وأدخل مخزونه أولًا.';return}
+ if(customerId===null||!state.customers[customerId]){$('shipMsg').textContent='اختر الزبون.';return}
+ if(carrierId===null||!carrierObj||carrierObj.available===false){$('shipMsg').textContent='اختر ناقلًا متاحًا.';return}
+ if(!stock||c.quantity<1||c.quantity>stock.qty){$('shipMsg').textContent='المخزون غير كافٍ لهذا النوع.';return}
+ if(num($('advance').value)>c.transport){$('shipMsg').textContent='مقدم الناقل أكبر من حق النقل.';return}
+ stock.qty-=c.quantity;
+ const shipmentNo=nextShipmentNo();
+ const factoryShipmentNo=nextFactoryShipmentNo(fi);
+ state.shipments.push({
+   id:Date.now(), shipmentNo, factoryShipmentNo, customerId, customer:state.customers[customerId].name, carrierId, factory:fi, type, qty:c.quantity,
+   buy:c.buy, inclusive:c.inclusive, transport:c.transport, advance:c.advance,
+   arrival:c.arrival, debt:c.debt, factoryCost:c.factoryCost, brickRevenue:c.brickRevenue,
+   profit:c.profit, carrier, truck, status:'في مهمة', createdAt:new Date().toISOString()
+ });
+ carrierObj.available=false; save(); $('shipMsg').textContent=`تم تسجيل الشحنة #${shipmentNo}، والناقل الآن في مهمة ولن يظهر في قائمة المتاحين.`; renderAll();
+});
+
+
+
+$('stockType').addEventListener('change',syncStockForm);
+$('stockPallets').addEventListener('input',syncStockForm);
+$('brickType').addEventListener('change',()=>{syncBuy();syncShipmentPallets()});
+$('shipPallets').addEventListener('input',syncShipmentPallets);
+
+document.addEventListener('input',e=>{
+ const p=e.target.closest('[data-edit-stock-pallets]');
+ if(p){
+   const fi=Number(p.dataset.editStockPallets), type=p.dataset.type;
+   const qInput=document.querySelector(`[data-edit-stock-qty="${fi}"][data-type="${type}"]`);
+   if(qInput) qInput.value=piecesFromPallets(type,num(p.value));
+   return;
+ }
+ const qInput=e.target.closest('[data-edit-stock-qty]');
+ if(qInput){
+   const fi=Number(qInput.dataset.editStockQty), type=qInput.dataset.type;
+   const pInput=document.querySelector(`[data-edit-stock-pallets="${fi}"][data-type="${type}"]`);
+   if(pInput) pInput.value=palletsFromPieces(type,int(qInput.value)).toFixed(2);
+ }
+});
+
+
+
+let editingCarrierIndex=null;
+
+$('carrierForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const name=$('carrierManageName').value.trim();
+ const phone=$('carrierManagePhone').value.trim();
+ const plate=$('carrierManagePlate').value.trim();
+ if(!name||!phone||!plate)return;
+ if(editingCarrierIndex===null){
+   state.carriers.push({name,phone,plate,available:true});
+ }else{
+   const old=state.carriers[editingCarrierIndex];
+   state.carriers[editingCarrierIndex]={name,phone,plate,available:old.available!==false};
+ }
+ save();
+ editingCarrierIndex=null;
+ e.target.reset();
+ $('saveCarrierBtn').textContent='إضافة الناقل';
+ $('cancelCarrierEdit').style.display='none';
+ renderAll();
+});
+
+$('cancelCarrierEdit').addEventListener('click',()=>{
+ editingCarrierIndex=null;
+ $('carrierForm').reset();
+ $('saveCarrierBtn').textContent='إضافة الناقل';
+ $('cancelCarrierEdit').style.display='none';
+});
+
+document.addEventListener('click',e=>{
+ const edit=e.target.closest('[data-edit-carrier]');
+ if(edit){
+   const i=Number(edit.dataset.editCarrier), c=state.carriers[i];
+   if(!c)return;
+   editingCarrierIndex=i;
+   $('carrierManageName').value=c.name;
+   $('carrierManagePhone').value=c.phone||'';
+   $('carrierManagePlate').value=c.plate||'';
+   $('saveCarrierBtn').textContent='حفظ التعديل';
+   $('cancelCarrierEdit').style.display='inline-block';
+   document.querySelector('[data-view="carrierManage"]').click();
+   return;
+ }
+ const toggle=e.target.closest('[data-toggle-carrier]');
+ if(toggle){
+   const i=Number(toggle.dataset.toggleCarrier), c=state.carriers[i];
+   if(!c)return;
+   c.available=c.available===false;
+   save(); renderAll(); return;
+ }
+ const del=e.target.closest('[data-delete-carrier]');
+ if(del){
+   const i=Number(del.dataset.deleteCarrier), c=state.carriers[i];
+   if(!c)return;
+   const used=state.shipments.some(s=>s.carrierId===i);
+   if(used){alert('لا يمكن حذف هذا الناقل لأنه مرتبط بشحنات مسجلة. يمكنك تعديل بياناته بدلًا من حذفه.');return}
+   if(confirm(`حذف الناقل ${c.name}؟`)){
+     state.carriers.splice(i,1);
+     state.shipments.forEach(s=>{if(s.carrierId>i)s.carrierId-=1});
+     save(); renderAll();
+   }
+   return;
+ }
+ const complete=e.target.closest('[data-complete-shipment]');
+ if(complete){
+   const id=Number(complete.dataset.completeShipment);
+   const s=state.shipments.find(x=>Number(x.id)===id);
+   if(!s)return;
+   s.status='تم التسليم';
+   if(s.carrierId!=null && state.carriers[s.carrierId]) state.carriers[s.carrierId].available=true;
+   save(); renderAll();
+ }
+});
+
+let editingCustomerIndex=null;
+
+$('customerForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const name=$('customerName').value.trim();
+ const phone=$('customerPhone').value.trim();
+ if(!name||!phone)return;
+ if(editingCustomerIndex===null){
+   state.customers.push({name,phone});
+ }else{
+   state.customers[editingCustomerIndex]={name,phone};
+ }
+ save();
+ editingCustomerIndex=null;
+ e.target.reset();
+ $('saveCustomerBtn').textContent='إضافة الزبون';
+ $('cancelCustomerEdit').style.display='none';
+ renderAll();
+});
+
+$('cancelCustomerEdit').addEventListener('click',()=>{
+ editingCustomerIndex=null;
+ $('customerForm').reset();
+ $('saveCustomerBtn').textContent='إضافة الزبون';
+ $('cancelCustomerEdit').style.display='none';
+});
+
+document.addEventListener('click',e=>{
+ const edit=e.target.closest('[data-edit-customer]');
+ if(edit){
+   const i=Number(edit.dataset.editCustomer), c=state.customers[i];
+   if(!c)return;
+   editingCustomerIndex=i;
+   $('customerName').value=c.name;
+   $('customerPhone').value=c.phone||'';
+   $('saveCustomerBtn').textContent='حفظ التعديل';
+   $('cancelCustomerEdit').style.display='inline-block';
+   document.querySelector('[data-view="customerManage"]').click();
+   return;
+ }
+ const del=e.target.closest('[data-delete-customer]');
+ if(del){
+   const i=Number(del.dataset.deleteCustomer), c=state.customers[i];
+   if(!c)return;
+   const used=state.shipments.some(s=>s.customerId===i);
+   if(used){alert('لا يمكن حذف هذا الزبون لأنه مرتبط بشحنات مسجلة. يمكنك تعديل بياناته بدلًا من حذفه.');return}
+   if(confirm(`حذف الزبون ${c.name}؟`)){
+     state.customers.splice(i,1);
+     state.shipments.forEach(s=>{if(s.customerId>i)s.customerId-=1});
+     save(); renderAll();
+   }
+ }
+});
+
+$('toggleCustomerDebt').addEventListener('click',()=>{
+ const box=$('homeCustomerDebtDetails');
+ const open=box.style.display!=='none';
+ box.style.display=open?'none':'block';
+ $('toggleCustomerDebt').textContent=open?'عرض ديون كل زبون':'إخفاء التفاصيل';
+});
+
+document.addEventListener('click',e=>{
+ const saveBtn=e.target.closest('[data-save-stock]');
+ if(saveBtn){
+   const fi=Number(saveBtn.dataset.saveStock), type=saveBtn.dataset.type;
+   const qtyInput=document.querySelector(`[data-edit-stock-qty="${fi}"][data-type="${type}"]`);
+   const priceInput=document.querySelector(`[data-edit-stock-price="${fi}"][data-type="${type}"]`);
+   if(!state.factories[fi]||!qtyInput||!priceInput)return;
+   state.factories[fi].stocks[type].qty=int(qtyInput.value);
+   state.factories[fi].stocks[type].price=r2(num(priceInput.value));
+   save(); renderAll(); alert('تم حفظ المخزون الحقيقي للمصنع.');
+   return;
+ }
+ const plus=e.target.closest('[data-plus-pallet]');
+ if(plus){
+   const fi=Number(plus.dataset.plusPallet), type=plus.dataset.type;
+   state.factories[fi].stocks[type].qty+=PALLET_SIZE[type];
+   save(); renderAll(); return;
+ }
+ const minus=e.target.closest('[data-minus-pallet]');
+ if(minus){
+   const fi=Number(minus.dataset.minusPallet), type=minus.dataset.type;
+   state.factories[fi].stocks[type].qty=Math.max(0,state.factories[fi].stocks[type].qty-PALLET_SIZE[type]);
+   save(); renderAll(); return;
+ }
+});
+
+$('exportBtn').addEventListener('click',()=>{
+ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ajer-backup.json'; a.click(); URL.revokeObjectURL(a.href);
+});
+$('importFile').addEventListener('change',async e=>{
+ const file=e.target.files[0]; if(!file)return;
+ try{const data=JSON.parse(await file.text()); if(!data.factories||!data.shipments)throw new Error(); state=data; if(!Array.isArray(state.customers))state.customers=[]; if(!Array.isArray(state.carriers))state.carriers=[]; normalizeShipmentNumbers(); save(); renderAll(); alert('تمت استعادة النسخة بنجاح');}catch{alert('ملف النسخة الاحتياطية غير صالح')}
+ e.target.value='';
+});
+$('resetBtn').addEventListener('click',()=>{
+ if(confirm('هل تريد مسح كل البيانات والبدء بمخزون فارغ؟')){state=defaultState();save();renderAll()}
+});
+
+syncStockForm(); syncShipmentPallets(); renderAll();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>
