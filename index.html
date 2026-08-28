@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>إدارة الآجر والنقل</title>
+<title>إدارة الآجر والنقل — v1.8</title>
 <style>
 :root{--bg:#f5f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--accent:#2563eb;--danger:#b91c1c}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -18,6 +18,15 @@ label{display:grid;gap:6px;font-size:14px}input,select{min-height:44px;border:1p
 table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:right;font-size:14px}th{background:#f9fafb}
 .scroll{overflow:auto}.section-title{margin:0 0 12px;font-size:18px}.notice{padding:10px 12px;border:1px dashed var(--border);border-radius:10px;background:#fafafa}
 @media(max-width:850px){.app{grid-template-columns:1fr}.side{position:static;height:auto;border-left:0;border-bottom:1px solid var(--border)}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.g4,.g3,.g2{grid-template-columns:1fr}main{padding:12px}}
+
+@media print{
+  .side,.nav,.btn,#paymentPanel{display:none!important}
+  .app{display:block!important}
+  main{padding:0!important}
+  body{background:#fff!important}
+  .card,.item{box-shadow:none!important;border:0!important}
+}
+
 </style>
 
 <link rel="manifest" href="manifest.json">
@@ -36,6 +45,7 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;bor
     <div class="nav">
       <button data-view="home" class="active">الرئيسية</button>
       <button data-view="factories">المصانع والمخزون</button>
+      <button data-view="orders">الطلبيات وأماكن التفريغ</button>
       <button data-view="shipments">الشحنات</button>
       <button data-view="customerManage">إدارة الزبائن</button><button data-view="customers">حساب الزبائن</button>
       <button data-view="carrierManage">إدارة الناقلين</button><button data-view="carriers">حساب الناقلين</button>
@@ -91,19 +101,60 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;bor
         <div id="stockAddPreview" class="notice small" style="margin-top:10px"></div>
       </div>
 
+
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">تسجيل دفعة للمصنع</h2>
+        <form id="factoryPaymentForm" class="grid g4">
+          <label>المصنع<select id="factoryPaymentFactory"></select></label>
+          <label>المبلغ<input id="factoryPaymentAmount" type="number" min="0.01" step="0.01" required></label>
+          <label>التاريخ والوقت<input id="factoryPaymentDate" type="datetime-local" required></label>
+          <label>ملاحظة<input id="factoryPaymentNote" placeholder="نقدًا / تحويل / ..."></label>
+          <div><button class="btn primary" type="submit">حفظ الدفعة</button></div>
+        </form>
+      </div>
       <div id="factoryCards" class="list"></div>
+    </section>
+
+
+    <datalist id="savedPlaces"></datalist>
+    <section id="orders" class="view">
+      <div class="card">
+        <h2 class="section-title">تسجيل طلبية</h2>
+        <form id="orderForm" class="grid g4">
+          <label>الزبون<select id="orderCustomer"></select></label>
+          <label>مكان التفريغ
+  <input id="orderPlace" list="savedPlaces" required placeholder="اكتب المكان أول مرة أو اختر مكانًا محفوظًا">
+</label>
+          <label>المصنع المطلوب<select id="orderFactory"></select></label>
+          <label>نوع الآجر<select id="orderType"><option>آجر 12</option><option>آجر 8</option></select></label>
+          <label>عدد الباليطات<input id="orderPallets" type="number" min="0.01" step="0.01" value="1" required></label>
+          <label>عدد الحبات تلقائيًا<input id="orderQty" type="number" readonly></label>
+          <label>التاريخ والوقت<input id="orderDate" type="datetime-local" required></label>
+          <div><button class="btn primary" type="submit">حفظ الطلبية</button></div>
+          <div class="notice small">أول مرة أدخل البيانات يدويًا، وبعدها سيقترح التطبيق آخر بيانات استُعملت لهذا الزبون/المكان.</div>
+        </form>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">الطلبيات المسجلة</h2>
+        <div id="orderRows" class="list"></div>
+      </div>
     </section>
 
     <section id="shipments" class="view">
       <div class="card">
         <h2 class="section-title">شحنة جديدة</h2>
         <form id="shipForm" class="grid g4">
+          <label>الطلبية (اختياري)<select id="shipmentOrder"><option value="">بدون طلبية</option></select></label>
           <label>الزبون<select id="customer"></select></label>
+          <label>مكان تفريغ الشحنة
+  <input id="shipmentPlace" list="savedPlaces" required placeholder="اكتب المكان أول مرة أو اختر مكانًا محفوظًا">
+</label>
           <label>المصنع<select id="shipFactory"></select></label>
           <label>نوع الآجر<select id="brickType"><option>آجر 12</option><option>آجر 8</option></select></label>
           <label>عدد الباليطات للشحنة<input id="shipPallets" type="number" min="0.01" step="0.01" value="1" required></label><label>عدد الحبات تلقائيًا<input id="qty" type="number" readonly></label>
           <label>سعر المصنع للوحدة<input id="buyPrice" readonly></label>
-          <label>السعر الإجمالي الشامل للزبون<input id="inclusive" type="number" min="0" step="0.01" value="420000" required></label>
+          <label>سعر الوحدة للزبون<input id="customerUnitPrice" type="number" min="0" step="0.01" value="0" required></label>
+          <label>السعر الإجمالي الشامل للزبون<input id="inclusive" type="number" min="0" step="0.01" readonly></label>
           <label>حق النقل الكامل<input id="transport" type="number" min="0" step="0.01" value="20000" required></label>
           <label>مقدم للناقل قبل الانطلاق<input id="advance" type="number" min="0" step="0.01" value="0"></label>
           <label>الناقل المتاح<select id="carrier"></select></label>
@@ -113,7 +164,7 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;bor
         <div id="preview" class="notice" style="margin-top:12px"></div>
         <div class="row" style="margin-top:12px"><button id="confirmShipment" class="btn primary" type="button">تأكيد الشحنة</button><span id="shipMsg" class="small"></span></div>
       </div>
-      <div class="card" style="margin-top:12px"><h2 class="section-title">سجل الشحنات</h2><div class="scroll"><table><thead><tr><th>رقم الشحنة</th><th>التاريخ والوقت</th><th>الزبون</th><th>المصنع</th><th>النوع</th><th>الكمية</th><th>اسم السائق</th><th>لوحة الشاحنة</th><th>الشامل</th><th>دفع للناقل</th><th>دين الزبون</th><th>الفائدة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="shipTable"></tbody></table></div></div>
+      <div class="card" style="margin-top:12px"><h2 class="section-title">سجل الشحنات</h2><div class="scroll"><table><thead><tr><th>رقم الشحنة</th><th>التاريخ والوقت</th><th>الزبون</th><th>مكان التفريغ</th><th>المصنع</th><th>النوع</th><th>الكمية</th><th>اسم السائق</th><th>لوحة الشاحنة</th><th>الشامل</th><th>دفع للناقل</th><th>دين الزبون</th><th>الفائدة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="shipTable"></tbody></table></div></div>
     </section>
 
 
@@ -131,7 +182,25 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;bor
         <div id="customerManageRows" class="list"></div>
       </div>
     </section>
-    <section id="customers" class="view"><div class="card"><h2 class="section-title">حساب الزبائن</h2><div id="customerCards" class="list"></div></div></section>
+    <section id="customers" class="view">
+      <div class="card">
+        <h2 class="section-title">حساب الزبائن</h2>
+        <div id="paymentPanel" class="notice" style="display:none;margin-bottom:12px">
+          <div class="row" style="justify-content:space-between">
+            <strong id="paymentCustomerTitle">تسجيل دفعة</strong>
+            <button id="closePaymentPanel" type="button" class="btn">إغلاق</button>
+          </div>
+          <form id="customerPaymentForm" class="grid g3" style="margin-top:10px">
+            <input id="paymentCustomerId" type="hidden">
+            <label>المبلغ<input id="paymentAmount" type="number" min="0.01" step="0.01" required></label>
+            <label>التاريخ والوقت<input id="paymentDate" type="datetime-local" required></label>
+            <label>ملاحظة<input id="paymentNote" placeholder="مثال: تحويل بنكي / نقدًا"></label>
+            <div><button class="btn primary" type="submit">حفظ الدفعة</button></div>
+          </form>
+        </div>
+        <div id="customerCards" class="list"></div>
+      </div>
+    </section>
 
     <section id="carrierManage" class="view">
       <div class="card">
@@ -176,11 +245,136 @@ const PALLET_SIZE={'آجر 12':116,'آجر 8':176};
 const palletsFromPieces=(type,pieces)=>pieces/PALLET_SIZE[type];
 const piecesFromPallets=(type,pallets)=>Math.round((Number(pallets)||0)*PALLET_SIZE[type]);
 
-function defaultState(){return{factories:[],customers:[],carriers:[],shipments:[]}}
+function defaultState(){return{factories:[],customers:[],carriers:[],shipments:[],customerPayments:[],factoryPurchases:[],factoryPayments:[],orders:[],savedPlaces:[]}}
 let state;
 try{state=JSON.parse(localStorage.getItem(KEY))||defaultState()}catch(e){state=defaultState()}
 if(!Array.isArray(state.customers)) state.customers=[];
 if(!Array.isArray(state.carriers)) state.carriers=[];
+if(!Array.isArray(state.customerPayments)) state.customerPayments=[];
+if(!Array.isArray(state.factoryPurchases)) state.factoryPurchases=[];
+if(!Array.isArray(state.factoryPayments)) state.factoryPayments=[];
+if(!Array.isArray(state.orders)) state.orders=[];
+if(!Array.isArray(state.savedPlaces)) state.savedPlaces=[];
+
+function factoryPurchases(fi){return state.factoryPurchases.filter(x=>x.factory===fi)}
+function factoryPayments(fi){return state.factoryPayments.filter(x=>x.factory===fi)}
+function factoryPurchased(fi){return r2(factoryPurchases(fi).reduce((a,x)=>a+(Number(x.amount)||0),0))}
+function factoryPaid(fi){return r2(factoryPayments(fi).reduce((a,x)=>a+(Number(x.amount)||0),0))}
+function factoryBalance(fi){return r2(factoryPurchased(fi)-factoryPaid(fi))}
+function factoryLedger(fi){
+ const rows=[];
+ factoryPurchases(fi).forEach(x=>rows.push({date:x.date||x.createdAt,desc:`شراء ${x.type} — ${qfmt(x.pallets)} باليط — ${qfmt(x.pieces)} حبة`,debit:x.amount,credit:0}));
+ factoryPayments(fi).forEach(x=>rows.push({date:x.date||x.createdAt,desc:`دفعة للمصنع${x.note?' — '+x.note:''}`,debit:0,credit:x.amount}));
+ rows.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+ let bal=0; return rows.map(x=>({...x,balance:(bal=r2(bal+x.debit-x.credit))}));
+}
+function printFactoryAccount(fi){
+ const f=state.factories[fi]; if(!f)return;
+ const rows=factoryLedger(fi);
+ const bal=factoryBalance(fi);
+ const body=rows.map(x=>`<tr><td>${esc(fmtDate(x.date))}</td><td>${esc(x.desc)}</td><td>${x.debit?money(x.debit):'-'}</td><td>${x.credit?money(x.credit):'-'}</td><td>${x.balance>0?'دين '+money(x.balance):x.balance<0?'رصيد '+money(Math.abs(x.balance)):money(0)}</td></tr>`).join('');
+ const w=window.open('','_blank'); if(!w){alert('اسمح بالنوافذ المنبثقة للطباعة.');return}
+ w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حساب ${esc(f.name)}</title><style>body{font-family:Arial;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:right}th{background:#eee}@media print{button{display:none}}</style></head><body><h1>كشف حساب المصنع — ${esc(f.name)}</h1><p>إجمالي المشتريات: <strong>${money(factoryPurchased(fi))}</strong> | إجمالي المدفوع: <strong>${money(factoryPaid(fi))}</strong> | ${bal>0?'الدين للمصنع':bal<0?'رصيد لصالحنا':'الرصيد'}: <strong>${money(Math.abs(bal))}</strong></p><table><thead><tr><th>التاريخ</th><th>البيان</th><th>مشتريات</th><th>دفعات</th><th>الرصيد</th></tr></thead><tbody>${body||'<tr><td colspan="5">لا توجد حركات</td></tr>'}</tbody></table><button onclick="print()">طباعة</button></body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},300);
+}
+
+function normalizePlace(v){return String(v||'').trim().replace(/\s+/g,' ')}
+function rememberPlace(place,customerId=null){
+ place=normalizePlace(place); if(!place)return;
+ let p=state.savedPlaces.find(x=>x.name.toLocaleLowerCase('ar')===place.toLocaleLowerCase('ar'));
+ if(!p){
+   p={id:Date.now()+Math.random(),name:place,customerIds:[],lastUsed:new Date().toISOString()};
+   state.savedPlaces.push(p);
+ }
+ if(customerId!==null && customerId!==undefined && !p.customerIds.includes(Number(customerId))) p.customerIds.push(Number(customerId));
+ p.lastUsed=new Date().toISOString();
+}
+function allKnownPlaces(){
+ const names=[];
+ state.savedPlaces.forEach(p=>names.push(p.name));
+ state.orders.forEach(o=>{if(o.place)names.push(o.place)});
+ state.shipments.forEach(s=>{if(s.place)names.push(s.place)});
+ return [...new Set(names.map(normalizePlace).filter(Boolean))];
+}
+function fillSavedPlaces(){
+ const dl=$('savedPlaces'); if(!dl)return;
+ dl.innerHTML=allKnownPlaces().map(p=>`<option value="${esc(p)}"></option>`).join('');
+}
+
+function lastShipmentForCustomer(customerId, place=null){
+  const id=Number(customerId);
+  let rows=state.shipments.filter(s=>s.customerId===id);
+  if(place){
+    const np=normalizePlace(place).toLocaleLowerCase('ar');
+    rows=rows.filter(s=>normalizePlace(s.place).toLocaleLowerCase('ar')===np);
+  }
+  return rows.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))[0]||null;
+}
+function lastOrderForCustomer(customerId, place=null){
+  const id=Number(customerId);
+  let rows=state.orders.filter(o=>o.customerId===id);
+  if(place){
+    const np=normalizePlace(place).toLocaleLowerCase('ar');
+    rows=rows.filter(o=>normalizePlace(o.place).toLocaleLowerCase('ar')===np);
+  }
+  return rows.slice().sort((a,b)=>new Date(b.date||b.createdAt||0)-new Date(a.date||a.createdAt||0))[0]||null;
+}
+function preferredDataForCustomer(customerId, place=null){
+  const s=lastShipmentForCustomer(customerId,place) || lastShipmentForCustomer(customerId);
+  const o=lastOrderForCustomer(customerId,place) || lastOrderForCustomer(customerId);
+  return {
+    place: place || s?.place || o?.place || lastPlaceForCustomer(customerId) || '',
+    factory: s?.factory ?? o?.factory ?? null,
+    type: s?.type || o?.type || 'آجر 12',
+    pallets: s?.pallets ?? (s?.qty && s?.type ? palletsFromPieces(s.type,s.qty) : null) ?? o?.pallets ?? null,
+    customerUnitPrice: s?.customerUnitPrice ?? (s?.qty ? r2((Number(s.inclusive)||0)/(Number(s.qty)||1)) : null),
+    transport: s?.transport ?? null,
+    carrierId: s?.carrierId ?? null
+  };
+}
+function applySmartOrderDefaults(force=false){
+  if(!$('orderCustomer')||$('orderCustomer').value==='')return;
+  const customerId=Number($('orderCustomer').value);
+  const existingPlace=normalizePlace($('orderPlace').value);
+  const d=preferredDataForCustomer(customerId,existingPlace||null);
+  if(d.place && (force || !$('orderPlace').value.trim())) $('orderPlace').value=d.place;
+  if(d.factory!==null && state.factories[d.factory] && (force || !$('orderFactory').value)) $('orderFactory').value=String(d.factory);
+  if(d.type && (force || !$('orderType').value)) $('orderType').value=d.type;
+  if(d.pallets && (force || !num($('orderPallets').value))) $('orderPallets').value=d.pallets;
+  syncOrderQty();
+}
+function applySmartShipmentDefaults(force=false){
+  if(!$('customer')||$('customer').value==='')return;
+  const customerId=Number($('customer').value);
+  const existingPlace=normalizePlace($('shipmentPlace').value);
+  const d=preferredDataForCustomer(customerId,existingPlace||null);
+  if(d.place && (force || !$('shipmentPlace').value.trim())) $('shipmentPlace').value=d.place;
+  if(d.factory!==null && state.factories[d.factory]) $('shipFactory').value=String(d.factory);
+  if(d.type) $('brickType').value=d.type;
+  if(d.pallets) $('shipPallets').value=d.pallets;
+  syncBuy(); syncShipmentPallets();
+  if(d.customerUnitPrice!=null && $('customerUnitPrice')) $('customerUnitPrice').value=d.customerUnitPrice;
+  if(d.transport!=null) $('transport').value=d.transport;
+  if(d.carrierId!=null && state.carriers[d.carrierId]?.available) $('carrier').value=String(d.carrierId);
+  preview();
+}
+
+function lastPlaceForCustomer(customerId){
+ const id=Number(customerId);
+ const movements=[
+   ...state.orders.filter(o=>o.customerId===id && o.place).map(o=>({place:o.place,date:o.date||o.createdAt||''})),
+   ...state.shipments.filter(s=>s.customerId===id && s.place).map(s=>({place:s.place,date:s.createdAt||''}))
+ ];
+ movements.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+ return movements[0]?.place || state.savedPlaces.filter(p=>p.customerIds?.includes(id)).sort((a,b)=>new Date(b.lastUsed||0)-new Date(a.lastUsed||0))[0]?.name || '';
+}
+function suggestCustomerPlace(customerSelectId,placeInputId,force=false){
+ const sel=$(customerSelectId), input=$(placeInputId); if(!sel||!input||sel.value==='')return;
+ const place=lastPlaceForCustomer(Number(sel.value));
+ if(place && (force || !input.value.trim())) input.value=place;
+}
+
+function nextOrderNo(){return state.orders.reduce((m,o)=>Math.max(m,Number(o.orderNo)||0),0)+1}
+
 function normalizeShipmentNumbers(){
   const counters={};
   state.shipments.forEach((s,i)=>{
@@ -209,6 +403,91 @@ function nextShipmentNo(){
 function nextFactoryShipmentNo(factoryIndex){
   return state.shipments.filter(s=>s.factory===factoryIndex).reduce((mx,s)=>Math.max(mx,Number(s.factoryShipmentNo)||0),0)+1;
 }
+function carrierShipments(carrierId){
+  return state.shipments.filter(s=>s.carrierId===carrierId);
+}
+function carrierPlaces(carrierId){
+  return [...new Set(carrierShipments(carrierId).map(s=>s.place).filter(Boolean))];
+}
+function customerShipments(customerId){
+  return state.shipments.filter(s=>s.customerId===customerId);
+}
+function customerPayments(customerId){
+  return state.customerPayments.filter(p=>p.customerId===customerId);
+}
+function customerCharges(customerId){
+  return r2(customerShipments(customerId).reduce((a,s)=>a+(Number(s.debt)||0),0));
+}
+function customerPaid(customerId){
+  return r2(customerPayments(customerId).reduce((a,p)=>a+(Number(p.amount)||0),0));
+}
+function customerBalance(customerId){
+  return r2(customerCharges(customerId)-customerPaid(customerId));
+}
+function fmtDate(v){
+  if(!v)return '-';
+  const d=new Date(v);
+  return Number.isNaN(d.getTime())?String(v):d.toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+function esc(v){
+  return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function customerLedger(customerId){
+  const rows=[];
+  customerShipments(customerId).forEach(s=>{
+    rows.push({
+      date:s.createdAt||'',
+      type:'shipment',
+      description:`شحنة #${s.shipmentNo||'-'} — مكان التفريغ: ${s.place||'-'} — ${s.type} — ${qfmt(s.qty)} حبة — سعر الوحدة للزبون ${money(s.customerUnitPrice||((Number(s.qty)||0)?(Number(s.inclusive)||0)/(Number(s.qty)||1):0))} — السعر الشامل ${money(s.inclusive)} — دفع للناقل ${money(s.arrival)}`,
+      debit:Number(s.debt)||0,
+      credit:0
+    });
+  });
+  customerPayments(customerId).forEach(p=>{
+    rows.push({
+      date:p.date||p.createdAt||'',
+      type:'payment',
+      description:`دفعة زبون${p.note?' — '+p.note:''}`,
+      debit:0,
+      credit:Number(p.amount)||0
+    });
+  });
+  rows.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+  let running=0;
+  return rows.map(r=>{
+    running=r2(running+r.debit-r.credit);
+    return {...r,running};
+  });
+}
+function balanceLabel(v){
+  if(v>0)return `دين على الزبون: <strong>${money(v)}</strong>`;
+  if(v<0)return `رصيد لصالح الزبون: <strong>${money(Math.abs(v))}</strong>`;
+  return `الحساب متوازن: <strong>${money(0)}</strong>`;
+}
+function printCustomerAccount(customerId){
+  const c=state.customers[customerId]; if(!c)return;
+  const ledger=customerLedger(customerId);
+  const charges=customerCharges(customerId), paid=customerPaid(customerId), bal=customerBalance(customerId);
+  const rows=ledger.map(r=>`<tr><td>${esc(fmtDate(r.date))}</td><td>${esc(r.description)}</td><td>${r.debit?money(r.debit):'-'}</td><td>${r.credit?money(r.credit):'-'}</td><td>${r.running>0?'دين '+money(r.running):r.running<0?'رصيد '+money(Math.abs(r.running)):money(0)}</td></tr>`).join('');
+  const w=window.open('','_blank');
+  if(!w){alert('تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة لهذا الموقع.');return}
+  w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حساب ${esc(c.name)}</title><style>
+    body{font-family:Arial,Tahoma,sans-serif;padding:24px;color:#111}h1{margin:0 0 6px} .muted{color:#555}
+    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.box{border:1px solid #ccc;padding:10px;border-radius:8px}
+    table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #bbb;padding:8px;text-align:right;font-size:13px}th{background:#f2f2f2}
+    @media print{button{display:none}}
+  </style></head><body>
+    <h1>كشف حساب الزبون</h1><div><strong>${esc(c.name)}</strong></div><div class="muted">الهاتف: ${esc(c.phone||'-')}</div>
+    <div class="muted">أماكن التفريغ: ${esc([...new Set(customerShipments(customerId).map(s=>s.place).filter(Boolean))].join('، ')||'-')}</div>
+    <div class="summary"><div class="box">إجمالي المبالغ المستحقة<br><strong>${money(charges)}</strong></div><div class="box">إجمالي المدفوعات<br><strong>${money(paid)}</strong></div><div class="box">${bal>0?'الدين الحالي':bal<0?'رصيد لصالح الزبون':'الرصيد'}<br><strong>${money(Math.abs(bal))}</strong></div></div>
+    <table><thead><tr><th>التاريخ والوقت</th><th>البيان</th><th>مدين</th><th>دائن / دفعة</th><th>الرصيد بعد الحركة</th></tr></thead><tbody>${rows||'<tr><td colspan="5">لا توجد حركات.</td></tr>'}</tbody></table>
+    <p class="muted">تاريخ الطباعة: ${esc(fmtDate(new Date().toISOString()))}</p>
+    <button onclick="window.print()">طباعة</button>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{w.focus();w.print();},300);
+}
+
 const $=id=>document.getElementById(id);
 
 document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{
@@ -219,7 +498,7 @@ document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',(
 }));
 
 function fillFactories(){
- ['stockFactory','shipFactory'].forEach(id=>{
+ ['stockFactory','shipFactory','orderFactory','factoryPaymentFactory'].forEach(id=>{
    const el=$(id), old=el.value;
    el.innerHTML=state.factories.length
      ? state.factories.map((f,i)=>`<option value="${i}">${f.name}</option>`).join('')
@@ -230,11 +509,13 @@ function fillFactories(){
 
 
 function fillCustomers(){
- const el=$('customer'), old=el.value;
- el.innerHTML=state.customers.length
-   ? state.customers.map((c,i)=>`<option value="${i}">${c.name}${c.phone?' — '+c.phone:''}</option>`).join('')
-   : '<option value="">أضف زبونًا أولًا</option>';
- if(state.customers[Number(old)]) el.value=old;
+ ['customer','orderCustomer'].forEach(id=>{
+   const el=$(id), old=el.value;
+   el.innerHTML=state.customers.length
+     ? state.customers.map((c,i)=>`<option value="${i}">${c.name}${c.phone?' — '+c.phone:''}</option>`).join('')
+     : '<option value="">أضف زبونًا أولًا</option>';
+   if(state.customers[Number(old)]) el.value=old;
+ });
 }
 
 function fillCarriers(){
@@ -274,15 +555,17 @@ function syncBuy(){
 function calc(){
  const quantity=int($('qty').value);
  const buy=num($('buyPrice').value);
- const inclusive=num($('inclusive').value);
+ const customerUnitPrice=Math.max(0,num($('customerUnitPrice').value));
  const transport=num($('transport').value);
+ const factoryCost=r2(quantity*buy);
+ const inclusive=r2(quantity*customerUnitPrice);
+ $('inclusive').value=inclusive;
  const advance=Math.min(num($('advance').value),transport);
  const arrival=r2(Math.max(0,transport-advance));
  const debt=r2(Math.max(0,inclusive-arrival));
- const factoryCost=r2(quantity*buy);
  const brickRevenue=r2(Math.max(0,inclusive-transport));
  const profit=r2(brickRevenue-factoryCost);
- return {quantity,buy,inclusive,transport,advance,arrival,debt,factoryCost,brickRevenue,profit};
+ return {quantity,buy,customerUnitPrice,inclusive,transport,advance,arrival,debt,factoryCost,brickRevenue,profit};
 }
 
 function preview(){
@@ -291,39 +574,48 @@ function preview(){
 }
 
 function renderFactories(){
- $('factoryCards').innerHTML=state.factories.length?state.factories.map((f,fi)=>`
- <div class="item">
-   <h3>${f.name}</h3>
-   <div class="grid g2">
-   ${['آجر 12','آجر 8'].map(t=>{const s=f.stocks[t], ps=PALLET_SIZE[t], pallets=palletsFromPieces(t,s.qty);return `
-     <div class="notice">
-       <strong>${t}</strong>
-       <div class="small muted" style="margin-top:4px">كل باليط = ${ps} حبة</div>
-       <div class="grid g2" style="margin-top:8px">
-         <label>عدد الباليطات
-           <input type="number" min="0" step="0.01" value="${pallets.toFixed(2)}" data-edit-stock-pallets="${fi}" data-type="${t}">
-         </label>
-         <label>عدد الحبات
-           <input type="number" min="0" step="1" value="${s.qty}" data-edit-stock-qty="${fi}" data-type="${t}">
-         </label>
-         <label>سعر المصنع للحبة
-           <input type="number" min="0" step="0.01" value="${Number(s.price).toFixed(2)}" data-edit-stock-price="${fi}" data-type="${t}">
-         </label>
-       </div>
-       <div class="small" style="margin-top:8px">قيمة المخزون: <strong>${money(s.qty*s.price)}</strong></div>
-       <div class="row" style="margin-top:8px">
-         <button type="button" class="btn primary" data-save-stock="${fi}" data-type="${t}">حفظ التعديل</button>
-         <button type="button" class="btn" data-minus-pallet="${fi}" data-type="${t}">- 1 باليط</button>
-         <button type="button" class="btn" data-plus-pallet="${fi}" data-type="${t}">+ 1 باليط</button>
-       </div>
-     </div>`}).join('')}
-   </div>
- </div>`).join(''):'<div class="muted">لا يوجد مصنع بعد. أضف مصنعًا أولًا ثم أدخل مخزونه الحقيقي.</div>';
+ $('factoryCards').innerHTML=state.factories.length?state.factories.map((f,fi)=>{
+   const bal=factoryBalance(fi), ledger=factoryLedger(fi);
+   return `<div class="item">
+     <div class="row" style="justify-content:space-between;align-items:flex-start">
+       <div><h3>${esc(f.name)}</h3><div class="small">${bal>0?`دين للمصنع: <strong>${money(bal)}</strong>`:bal<0?`رصيد لصالحنا: <strong>${money(Math.abs(bal))}</strong>`:`الحساب متوازن: <strong>${money(0)}</strong>`}</div></div>
+       <button class="btn" type="button" data-print-factory="${fi}">طباعة كشف الحساب</button>
+     </div>
+     <div class="grid g2" style="margin-top:10px">
+       ${['آجر 12','آجر 8'].map(t=>{const s=f.stocks[t];return `<div class="notice"><strong>${t}</strong><div>الرصيد: <strong>${palletsFromPieces(t,s.qty).toFixed(2)} باليط</strong></div><div class="small muted">${qfmt(s.qty)} حبة • سعر الحبة ${money(s.price)}</div></div>`}).join('')}
+     </div>
+     <div class="small" style="margin-top:8px">إجمالي المشتريات: <strong>${money(factoryPurchased(fi))}</strong> • المدفوع للمصنع: <strong>${money(factoryPaid(fi))}</strong> • عدد الحركات: ${ledger.length}</div>
+   </div>`;
+ }).join(''):'<div class="muted">لا يوجد مصنع بعد.</div>';
+}
+
+function syncOrderQty(){
+ if(!$('orderQty'))return;
+ $('orderQty').value=piecesFromPallets($('orderType').value,num($('orderPallets').value));
+}
+function fillShipmentOrders(){
+ const el=$('shipmentOrder'); if(!el)return;
+ const old=el.value;
+ const open=state.orders.filter(o=>(o.status||'جديدة')!=='خرجت كشحنة' && (o.status||'جديدة')!=='ملغاة');
+ el.innerHTML='<option value="">بدون طلبية</option>'+open.map(o=>`<option value="${o.id}">طلبية #${o.orderNo} — ${state.customers[o.customerId]?.name||'-'} — ${esc(o.place)}</option>`).join('');
+ if(open.some(o=>String(o.id)===String(old)))el.value=old;
+}
+function renderOrders(){
+ $('orderRows').innerHTML=state.orders.length?state.orders.slice().reverse().map(o=>`<div class="item">
+   <div class="row" style="justify-content:space-between"><div><strong>طلبية #${o.orderNo}</strong> — ${esc(state.customers[o.customerId]?.name||'-')}<div class="small"><strong>المكان:</strong> ${esc(o.place)} • ${o.type} • ${qfmt(o.pallets)} باليط • ${qfmt(o.qty)} حبة</div><div class="small muted">${esc(state.factories[o.factory]?.name||'-')} • ${fmtDate(o.date)} • الحالة: ${o.status||'جديدة'}</div></div>
+   <div class="row">${(o.status||'جديدة')==='جديدة'?`<button class="btn primary" type="button" data-order-to-shipment="${o.id}">تحويل إلى شحنة</button><button class="btn" type="button" data-cancel-order="${o.id}">إلغاء</button>`:''}</div></div>
+ </div>`).join(''):'<div class="muted">لا توجد طلبيات بعد.</div>';
+}
+function loadOrderIntoShipment(id){
+ const o=state.orders.find(x=>String(x.id)===String(id)); if(!o)return;
+ $('shipmentOrder').value=String(o.id); $('customer').value=String(o.customerId); $('shipmentPlace').value=o.place||'';
+ $('shipFactory').value=String(o.factory); $('brickType').value=o.type; $('shipPallets').value=o.pallets;
+ syncBuy(); syncShipmentPallets();
 }
 
 function renderShipments(){
  $('shipTable').innerHTML=state.shipments.slice().reverse().map(s=>`
- <tr><td><strong>#${s.shipmentNo||'-'}</strong></td><td>${s.createdAt?new Date(s.createdAt).toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'-'}</td><td>${s.customerId!=null?(state.customers[s.customerId]?.name||'-'):s.customer}</td><td>${state.factories[s.factory]?.name||''}</td><td>${s.type}</td><td>${qfmt(s.qty)}</td><td>${s.carrier||'-'}</td><td>${s.truck||'-'}</td><td>${money(s.inclusive)}</td><td>${money(s.arrival)}</td><td>${money(s.debt)}</td><td>${money(s.profit)}</td><td>${s.status||'في مهمة'}</td><td>${(s.status||'في مهمة')==='في مهمة'?`<button type="button" class="btn primary" data-complete-shipment="${s.id}">تم التسليم</button>`:'-'}</td></tr>`).join('');
+ <tr><td><strong>#${s.shipmentNo||'-'}</strong></td><td>${s.createdAt?new Date(s.createdAt).toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'-'}</td><td>${s.customerId!=null?(state.customers[s.customerId]?.name||'-'):s.customer}</td><td>${esc(s.place||'-')}</td><td>${state.factories[s.factory]?.name||''}</td><td>${s.type}</td><td>${qfmt(s.qty)}</td><td>${s.carrier||'-'}</td><td>${s.truck||'-'}</td><td>${money(s.inclusive)}</td><td>${money(s.arrival)}</td><td>${money(s.debt)}</td><td>${money(s.profit)}</td><td>${s.status||'في مهمة'}</td><td>${(s.status||'في مهمة')==='في مهمة'?`<button type="button" class="btn primary" data-complete-shipment="${s.id}">تم التسليم</button>`:'-'}</td></tr>`).join('');
 }
 
 
@@ -333,7 +625,7 @@ function renderCustomerManage(){
      <div class="row" style="justify-content:space-between">
        <div>
          <h3>${c.name}</h3>
-         <div class="small muted">الهاتف: ${c.phone||'-'}</div>
+         <div class="small muted">الهاتف: ${c.phone||'-'} • أماكن التفريغ: ${esc(carrierPlaces(i).join('، ')||'-')}</div>
        </div>
        <div class="row">
          <button type="button" class="btn" data-edit-customer="${i}">تعديل</button>
@@ -343,17 +635,46 @@ function renderCustomerManage(){
    </div>`).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
 }
 function renderCustomers(){
- const ids=[...new Set(state.shipments.map(s=>s.customerId!=null?s.customerId:s.customer).filter(v=>v!==undefined&&v!==null&&v!==''))];
- $('customerCards').innerHTML=ids.length?ids.map(id=>{
-   const c=typeof id==='number'?state.customers[id]:null;
-   const name=c?.name || String(id);
-   const phone=c?.phone || '';
-   const ss=state.shipments.filter(s=>(s.customerId!=null?s.customerId:s.customer)===id);
-   const inclusive=ss.reduce((a,s)=>a+s.inclusive,0);
-   const arrival=ss.reduce((a,s)=>a+s.arrival,0);
-   const debt=ss.reduce((a,s)=>a+s.debt,0);
-   return `<div class="item"><h3>${name}</h3><div class="small muted">${phone?`الهاتف: ${phone}`:''}</div><div class="small">إجمالي الشحنات: <strong>${money(inclusive)}</strong></div><div class="small">دفع للناقلين عند الوصول: <strong>${money(arrival)}</strong></div><div class="small">الدين المسجل: <strong>${money(debt)}</strong></div></div>`;
- }).join(''):'<div class="muted">لا توجد حسابات زبائن بعد.</div>';
+ $('customerCards').innerHTML=state.customers.length?state.customers.map((c,id)=>{
+   const ss=customerShipments(id);
+   const inclusive=ss.reduce((a,s)=>a+(Number(s.inclusive)||0),0);
+   const arrival=ss.reduce((a,s)=>a+(Number(s.arrival)||0),0);
+   const charges=customerCharges(id);
+   const paid=customerPaid(id);
+   const bal=customerBalance(id);
+   const ledger=customerLedger(id);
+   const ledgerRows=ledger.slice().reverse().map(r=>`
+     <tr>
+       <td>${fmtDate(r.date)}</td>
+       <td>${esc(r.description)}</td>
+       <td>${r.debit?money(r.debit):'-'}</td>
+       <td>${r.credit?money(r.credit):'-'}</td>
+       <td>${r.running>0?`دين ${money(r.running)}`:r.running<0?`رصيد ${money(Math.abs(r.running))}`:money(0)}</td>
+     </tr>`).join('');
+   return `<div class="item">
+     <div class="row" style="justify-content:space-between;align-items:flex-start">
+       <div><h3>${esc(c.name)}</h3><div class="small muted">الهاتف: ${esc(c.phone||'-')}</div><div class="small muted">أماكن التفريغ: ${esc([...new Set(ss.map(s=>s.place).filter(Boolean))].join('، ')||'-')}</div></div>
+       <div class="row">
+         <button type="button" class="btn primary" data-add-payment="${id}">تسجيل دفعة</button>
+         <button type="button" class="btn" data-print-customer="${id}">طباعة كشف الحساب</button>
+       </div>
+     </div>
+     <div class="grid g3" style="margin-top:10px">
+       <div class="notice small">إجمالي الشحنات الشاملة<br><strong>${money(inclusive)}</strong></div>
+       <div class="notice small">دفع للناقلين عند الوصول<br><strong>${money(arrival)}</strong></div>
+       <div class="notice small">المبالغ المستحقة لنا<br><strong>${money(charges)}</strong></div>
+       <div class="notice small">إجمالي مدفوعات الزبون<br><strong>${money(paid)}</strong></div>
+       <div class="notice small">${balanceLabel(bal)}</div>
+     </div>
+     <details style="margin-top:12px">
+       <summary style="cursor:pointer;font-weight:700">عرض كشف الحساب الكامل بالتاريخ (${ledger.length} حركة)</summary>
+       <div class="scroll" style="margin-top:10px"><table>
+         <thead><tr><th>التاريخ والوقت</th><th>البيان</th><th>مدين</th><th>دائن / دفعة</th><th>الرصيد بعد الحركة</th></tr></thead>
+         <tbody>${ledgerRows||'<tr><td colspan="5">لا توجد حركات بعد.</td></tr>'}</tbody>
+       </table></div>
+     </details>
+   </div>`;
+ }).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
 }
 
 
@@ -363,7 +684,7 @@ function renderCarrierManage(){
      <div class="row" style="justify-content:space-between">
        <div>
          <h3>${c.name}</h3>
-         <div class="small muted">الهاتف: ${c.phone||'-'} • اللوحة: ${c.plate||'-'}</div>
+         <div class="small muted">الهاتف: ${c.phone||'-'} • أماكن التفريغ: ${esc(carrierPlaces(i).join('، ')||'-')} • اللوحة: ${c.plate||'-'}</div>
          <div class="small ${c.available===false?'danger':'ok'}">الحالة: <strong>${c.available===false?'في مهمة':'متاح'}</strong></div>
        </div>
        <div class="row">
@@ -396,22 +717,21 @@ function renderProfit(){
 }
 
 function renderHome(){
- $('sCustomer').textContent=money(state.shipments.reduce((a,s)=>a+s.debt,0));
+ $('sCustomer').textContent=money(state.customers.reduce((a,c,i)=>a+Math.max(0,customerBalance(i)),0));
  $('sAdvance').textContent=money(state.shipments.reduce((a,s)=>a+s.advance,0));
  $('sArrival').textContent=money(state.shipments.reduce((a,s)=>a+s.arrival,0));
  $('sProfit').textContent=money(state.shipments.reduce((a,s)=>a+s.profit,0));
  if($('sShipmentCount')) $('sShipmentCount').textContent=state.shipments.length;
 
- const customerIds=[...new Set(state.shipments.map(s=>s.customerId!=null?s.customerId:s.customer).filter(v=>v!==undefined&&v!==null&&v!==''))];
+ const customerIds=state.customers.map((_,i)=>i);
  $('homeCustomerDebtRows').innerHTML=customerIds.length?customerIds.map(id=>{
-   const c=typeof id==='number'?state.customers[id]:null;
-   const name=c?.name || String(id);
-   const debt=state.shipments.filter(s=>(s.customerId!=null?s.customerId:s.customer)===id).reduce((a,s)=>a+s.debt,0);
+   const c=state.customers[id];
+   const bal=customerBalance(id);
    return `<div class="item row" style="justify-content:space-between">
-     <div><strong>${name}</strong>${c?.phone?`<div class="small muted">${c.phone}</div>`:''}</div>
-     <span>الدين: <strong>${money(debt)}</strong></span>
+     <div><strong>${esc(c.name)}</strong>${c.phone?`<div class="small muted">${esc(c.phone)}</div>`:''}</div>
+     <span>${bal>0?`الدين: <strong>${money(bal)}</strong>`:bal<0?`رصيد لصالحه: <strong>${money(Math.abs(bal))}</strong>`:`متوازن: <strong>${money(0)}</strong>`}</span>
    </div>`;
- }).join(''):'<div class="muted">لا توجد ديون زبائن بعد.</div>';
+ }).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
 
  $('homeFactoryShipmentCounts').innerHTML=state.factories.length?state.factories.map((f,fi)=>{
    const ss=state.shipments.filter(s=>s.factory===fi);
@@ -446,7 +766,7 @@ function syncShipmentPallets(){
 }
 
 function renderAll(){
- fillFactories(); fillCustomers(); fillCarriers(); renderFactories(); renderCustomerManage(); renderCarrierManage(); renderShipments(); renderCustomers(); renderCarriers(); renderProfit(); renderHome(); syncBuy(); syncStockForm(); syncShipmentPallets();
+ fillFactories(); fillCustomers(); fillCarriers(); fillShipmentOrders(); fillSavedPlaces(); renderFactories(); renderOrders(); renderCustomerManage(); renderCarrierManage(); renderShipments(); renderCustomers(); renderCarriers(); renderProfit(); renderHome(); syncBuy(); syncStockForm(); syncShipmentPallets();
 }
 
 $('factoryForm').addEventListener('submit',e=>{
@@ -465,21 +785,24 @@ $('stockForm').addEventListener('submit',e=>{
  if(!f){alert('أضف مصنعًا أولًا.');return}
  if(add<1)return;
  const s=f.stocks[t], oldValue=s.qty*s.price;
+ const pallets=num($('stockPallets').value);
  s.qty+=add;
  s.price=s.qty?r2((oldValue+add*price)/s.qty):price;
+ state.factoryPurchases.push({id:Date.now(),factory:Number($('stockFactory').value),type:t,pallets,pieces:add,unitPrice:price,amount:r2(add*price),date:new Date().toISOString(),createdAt:new Date().toISOString()});
  save(); renderAll();
 });
 
 $('shipFactory').addEventListener('change',syncBuy);
 $('carrier').addEventListener('change',syncCarrierDetails);
-['inclusive','transport','advance'].forEach(id=>$(id).addEventListener('input',preview));
+['transport','advance','customerUnitPrice'].forEach(id=>$(id).addEventListener('input',preview));
 
 $('confirmShipment').addEventListener('click',()=>{
- const customerId=$('customer').value===''?null:Number($('customer').value), carrierId=$('carrier').value===''?null:Number($('carrier').value), carrierObj=carrierId===null?null:state.carriers[carrierId], carrier=carrierObj?.name||'', truck=carrierObj?.plate||'';
+ const customerId=$('customer').value===''?null:Number($('customer').value), place=$('shipmentPlace').value.trim(), orderId=$('shipmentOrder').value||null, carrierId=$('carrier').value===''?null:Number($('carrier').value), carrierObj=carrierId===null?null:state.carriers[carrierId], carrier=carrierObj?.name||'', truck=carrierObj?.plate||'';
  const fi=Number($('shipFactory').value), type=$('brickType').value, stock=state.factories[fi]?.stocks[type], c=calc();
  $('shipMsg').textContent='';
  if(!state.factories.length){$('shipMsg').textContent='أضف مصنعًا وأدخل مخزونه أولًا.';return}
  if(customerId===null||!state.customers[customerId]){$('shipMsg').textContent='اختر الزبون.';return}
+ if(!place){$('shipMsg').textContent='سجل مكان تفريغ الشحنة.';return}
  if(carrierId===null||!carrierObj||carrierObj.available===false){$('shipMsg').textContent='اختر ناقلًا متاحًا.';return}
  if(!stock||c.quantity<1||c.quantity>stock.qty){$('shipMsg').textContent='المخزون غير كافٍ لهذا النوع.';return}
  if(num($('advance').value)>c.transport){$('shipMsg').textContent='مقدم الناقل أكبر من حق النقل.';return}
@@ -487,15 +810,44 @@ $('confirmShipment').addEventListener('click',()=>{
  const shipmentNo=nextShipmentNo();
  const factoryShipmentNo=nextFactoryShipmentNo(fi);
  state.shipments.push({
-   id:Date.now(), shipmentNo, factoryShipmentNo, customerId, customer:state.customers[customerId].name, carrierId, factory:fi, type, qty:c.quantity,
-   buy:c.buy, inclusive:c.inclusive, transport:c.transport, advance:c.advance,
+   id:Date.now(), shipmentNo, factoryShipmentNo, customerId, customer:state.customers[customerId].name, place, orderId, carrierId, factory:fi, type, pallets:num($('shipPallets').value), qty:c.quantity,
+   buy:c.buy, customerUnitPrice:c.customerUnitPrice, inclusive:c.inclusive, transport:c.transport, advance:c.advance,
    arrival:c.arrival, debt:c.debt, factoryCost:c.factoryCost, brickRevenue:c.brickRevenue,
    profit:c.profit, carrier, truck, status:'في مهمة', createdAt:new Date().toISOString()
  });
- carrierObj.available=false; save(); $('shipMsg').textContent=`تم تسجيل الشحنة #${shipmentNo}، والناقل الآن في مهمة ولن يظهر في قائمة المتاحين.`; renderAll();
+ rememberPlace(place,customerId); carrierObj.available=false; if(orderId){const o=state.orders.find(x=>String(x.id)===String(orderId));if(o)o.status='خرجت كشحنة';} save(); $('shipMsg').textContent=`تم تسجيل الشحنة #${shipmentNo}، والناقل الآن في مهمة ولن يظهر في قائمة المتاحين.`; renderAll();
 });
 
 
+
+
+$('orderCustomer').addEventListener('change',()=>applySmartOrderDefaults(true));
+$('customer').addEventListener('change',()=>applySmartShipmentDefaults(true));
+$('orderPlace').addEventListener('change',()=>{const p=normalizePlace($('orderPlace').value);$('orderPlace').value=p;applySmartOrderDefaults(false);});
+$('shipmentPlace').addEventListener('change',()=>{const p=normalizePlace($('shipmentPlace').value);$('shipmentPlace').value=p;applySmartShipmentDefaults(false);});
+$('orderType').addEventListener('change',syncOrderQty);
+$('orderPallets').addEventListener('input',syncOrderQty);
+$('shipmentOrder').addEventListener('change',()=>{if($('shipmentOrder').value)loadOrderIntoShipment($('shipmentOrder').value)});
+$('orderForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const customerId=$('orderCustomer').value===''?null:Number($('orderCustomer').value), factory=$('orderFactory').value===''?null:Number($('orderFactory').value);
+ const place=$('orderPlace').value.trim(), type=$('orderType').value, pallets=num($('orderPallets').value), qty=piecesFromPallets(type,pallets), raw=$('orderDate').value;
+ if(customerId===null||factory===null||!place||pallets<=0)return;
+ const d=new Date(raw);
+ rememberPlace(place,customerId); state.orders.push({id:Date.now(),orderNo:nextOrderNo(),customerId,factory,place:normalizePlace(place),type,pallets,qty,date:Number.isNaN(d.getTime())?raw:d.toISOString(),status:'جديدة',createdAt:new Date().toISOString()});
+ save(); e.target.reset(); $('orderPallets').value='1'; $('orderDate').value=localDateTimeValue(); syncOrderQty(); renderAll(); applySmartOrderDefaults(true);
+});
+$('factoryPaymentForm').addEventListener('submit',e=>{
+ e.preventDefault(); const factory=Number($('factoryPaymentFactory').value), amount=r2(num($('factoryPaymentAmount').value)), raw=$('factoryPaymentDate').value, note=$('factoryPaymentNote').value.trim();
+ if(!state.factories[factory]||amount<=0||!raw)return;
+ const d=new Date(raw); state.factoryPayments.push({id:Date.now(),factory,amount,date:Number.isNaN(d.getTime())?raw:d.toISOString(),note,createdAt:new Date().toISOString()});
+ save(); e.target.reset(); $('factoryPaymentDate').value=localDateTimeValue(); renderAll();
+});
+document.addEventListener('click',e=>{
+ const pf=e.target.closest('[data-print-factory]'); if(pf){printFactoryAccount(Number(pf.dataset.printFactory));return}
+ const os=e.target.closest('[data-order-to-shipment]'); if(os){document.querySelector('[data-view="shipments"]').click(); setTimeout(()=>loadOrderIntoShipment(os.dataset.orderToShipment),0);return}
+ const co=e.target.closest('[data-cancel-order]'); if(co){const o=state.orders.find(x=>String(x.id)===String(co.dataset.cancelOrder));if(o){o.status='ملغاة';save();renderAll()}return}
+});
 
 $('stockType').addEventListener('change',syncStockForm);
 $('stockPallets').addEventListener('input',syncStockForm);
@@ -594,6 +946,50 @@ document.addEventListener('click',e=>{
  }
 });
 
+
+function localDateTimeValue(d=new Date()){
+ const pad=n=>String(n).padStart(2,'0');
+ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+document.addEventListener('click',e=>{
+ const add=e.target.closest('[data-add-payment]');
+ if(add){
+   const id=Number(add.dataset.addPayment), c=state.customers[id]; if(!c)return;
+   $('paymentCustomerId').value=id;
+   $('paymentCustomerTitle').textContent=`تسجيل دفعة — ${c.name}`;
+   $('paymentAmount').value='';
+   $('paymentDate').value=localDateTimeValue();
+   $('paymentNote').value='';
+   $('paymentPanel').style.display='block';
+   $('paymentPanel').scrollIntoView({behavior:'smooth',block:'start'});
+   return;
+ }
+ const pr=e.target.closest('[data-print-customer]');
+ if(pr){ printCustomerAccount(Number(pr.dataset.printCustomer)); return; }
+});
+$('closePaymentPanel').addEventListener('click',()=>{$('paymentPanel').style.display='none';});
+$('customerPaymentForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const customerId=Number($('paymentCustomerId').value);
+ const amount=r2(num($('paymentAmount').value));
+ const rawDate=$('paymentDate').value;
+ const note=$('paymentNote').value.trim();
+ if(!state.customers[customerId]||amount<=0||!rawDate)return;
+ const d=new Date(rawDate);
+ state.customerPayments.push({
+   id:Date.now(),
+   customerId,
+   amount,
+   date:Number.isNaN(d.getTime())?rawDate:d.toISOString(),
+   note,
+   createdAt:new Date().toISOString()
+ });
+ save();
+ $('paymentPanel').style.display='none';
+ renderAll();
+ alert('تم تسجيل دفعة الزبون وتحديث الرصيد.');
+});
+
 let editingCustomerIndex=null;
 
 $('customerForm').addEventListener('submit',e=>{
@@ -638,11 +1034,12 @@ document.addEventListener('click',e=>{
  if(del){
    const i=Number(del.dataset.deleteCustomer), c=state.customers[i];
    if(!c)return;
-   const used=state.shipments.some(s=>s.customerId===i);
+   const used=state.shipments.some(s=>s.customerId===i)||state.customerPayments.some(p=>p.customerId===i);
    if(used){alert('لا يمكن حذف هذا الزبون لأنه مرتبط بشحنات مسجلة. يمكنك تعديل بياناته بدلًا من حذفه.');return}
    if(confirm(`حذف الزبون ${c.name}؟`)){
      state.customers.splice(i,1);
      state.shipments.forEach(s=>{if(s.customerId>i)s.customerId-=1});
+     state.customerPayments.forEach(p=>{if(p.customerId>i)p.customerId-=1});
      save(); renderAll();
    }
  }
@@ -687,14 +1084,23 @@ $('exportBtn').addEventListener('click',()=>{
 });
 $('importFile').addEventListener('change',async e=>{
  const file=e.target.files[0]; if(!file)return;
- try{const data=JSON.parse(await file.text()); if(!data.factories||!data.shipments)throw new Error(); state=data; if(!Array.isArray(state.customers))state.customers=[]; if(!Array.isArray(state.carriers))state.carriers=[]; normalizeShipmentNumbers(); save(); renderAll(); alert('تمت استعادة النسخة بنجاح');}catch{alert('ملف النسخة الاحتياطية غير صالح')}
+ try{const data=JSON.parse(await file.text()); if(!data.factories||!data.shipments)throw new Error(); state=data; if(!Array.isArray(state.customers))state.customers=[]; if(!Array.isArray(state.carriers))state.carriers=[]; if(!Array.isArray(state.customerPayments))state.customerPayments=[];
+if(!Array.isArray(state.factoryPurchases))state.factoryPurchases=[];
+if(!Array.isArray(state.factoryPayments))state.factoryPayments=[];
+if(!Array.isArray(state.orders))state.orders=[];
+if(!Array.isArray(state.savedPlaces))state.savedPlaces=[];
+normalizeShipmentNumbers(); save(); renderAll(); alert('تمت استعادة النسخة بنجاح');}catch{alert('ملف النسخة الاحتياطية غير صالح')}
  e.target.value='';
 });
 $('resetBtn').addEventListener('click',()=>{
  if(confirm('هل تريد مسح كل البيانات والبدء بمخزون فارغ؟')){state=defaultState();save();renderAll()}
 });
 
-syncStockForm(); syncShipmentPallets(); renderAll();
+renderAll();
+if($('orderDate')) $('orderDate').value=localDateTimeValue();
+if($('factoryPaymentDate')) $('factoryPaymentDate').value=localDateTimeValue();
+syncOrderQty(); syncStockForm(); syncShipmentPallets();
+applySmartOrderDefaults(false); applySmartShipmentDefaults(false);
 </script>
 
 <script>
