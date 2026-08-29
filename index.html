@@ -258,12 +258,14 @@ if(!Array.isArray(state.savedPlaces)) state.savedPlaces=[];
 
 function factoryPurchases(fi){return state.factoryPurchases.filter(x=>x.factory===fi)}
 function factoryPayments(fi){return state.factoryPayments.filter(x=>x.factory===fi)}
-function factoryPurchased(fi){return r2(factoryPurchases(fi).reduce((a,x)=>a+(Number(x.amount)||0),0))}
+function factoryStockDebtAmount(fi){return r2(state.shipments.filter(x=>x.factory===fi).reduce((a,x)=>a+(Number(x.stockDebtAmount)||0),0))}
+function factoryPurchased(fi){return r2(factoryPurchases(fi).reduce((a,x)=>a+(Number(x.amount)||0),0)+factoryStockDebtAmount(fi))}
 function factoryPaid(fi){return r2(factoryPayments(fi).reduce((a,x)=>a+(Number(x.amount)||0),0))}
 function factoryBalance(fi){return r2(factoryPurchased(fi)-factoryPaid(fi))}
 function factoryLedger(fi){
  const rows=[];
  factoryPurchases(fi).forEach(x=>rows.push({date:x.date||x.createdAt,desc:`شراء ${x.type} — ${qfmt(x.pallets)} باليط — ${qfmt(x.pieces)} حبة`,debit:x.amount,credit:0}));
+ state.shipments.filter(x=>x.factory===fi && Number(x.stockDebtAmount)>0).forEach(x=>rows.push({date:x.createdAt,desc:`دين مخزون — شحنة #${x.shipmentNo||'-'} — ${x.type} — ${qfmt(x.stockDebtQty||0)} حبة`,debit:x.stockDebtAmount,credit:0}));
  factoryPayments(fi).forEach(x=>rows.push({date:x.date||x.createdAt,desc:`دفعة للمصنع${x.note?' — '+x.note:''}`,debit:0,credit:x.amount}));
  rows.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
  let bal=0; return rows.map(x=>({...x,balance:(bal=r2(bal+x.debit-x.credit))}));
@@ -584,7 +586,7 @@ function renderFactories(){
      <div class="grid g2" style="margin-top:10px">
        ${['آجر 12','آجر 8'].map(t=>{const s=f.stocks[t];return `<div class="notice"><strong>${t}</strong><div>الرصيد: <strong>${palletsFromPieces(t,s.qty).toFixed(2)} باليط</strong></div><div class="small muted">${qfmt(s.qty)} حبة • سعر الحبة ${money(s.price)}</div></div>`}).join('')}
      </div>
-     <div class="small" style="margin-top:8px">إجمالي المشتريات: <strong>${money(factoryPurchased(fi))}</strong> • المدفوع للمصنع: <strong>${money(factoryPaid(fi))}</strong> • عدد الحركات: ${ledger.length}</div>
+     <div class="small" style="margin-top:8px">إجمالي المستحق للمصنع: <strong>${money(factoryPurchased(fi))}</strong> • منها دين مخزون نقدي: <strong>${money(factoryStockDebtAmount(fi))}</strong> • المدفوع للمصنع: <strong>${money(factoryPaid(fi))}</strong> • عدد الحركات: ${ledger.length}</div>
    </div>`;
  }).join(''):'<div class="muted">لا يوجد مصنع بعد.</div>';
 }
@@ -804,8 +806,11 @@ $('confirmShipment').addEventListener('click',()=>{
  if(customerId===null||!state.customers[customerId]){$('shipMsg').textContent='اختر الزبون.';return}
  if(!place){$('shipMsg').textContent='سجل مكان تفريغ الشحنة.';return}
  if(carrierId===null||!carrierObj||carrierObj.available===false){$('shipMsg').textContent='اختر ناقلًا متاحًا.';return}
- if(!stock||c.quantity<1||c.quantity>stock.qty){$('shipMsg').textContent='المخزون غير كافٍ لهذا النوع.';return}
+ if(!stock||c.quantity<1){$('shipMsg').textContent='تحقق من المصنع والكمية.';return}
  if(num($('advance').value)>c.transport){$('shipMsg').textContent='مقدم الناقل أكبر من حق النقل.';return}
+ const availableBefore=Math.max(0,Number(stock.qty)||0);
+ const stockDebtQty=Math.max(0,c.quantity-availableBefore);
+ const stockDebtAmount=r2(stockDebtQty*c.buy);
  stock.qty-=c.quantity;
  const shipmentNo=nextShipmentNo();
  const factoryShipmentNo=nextFactoryShipmentNo(fi);
@@ -813,7 +818,7 @@ $('confirmShipment').addEventListener('click',()=>{
    id:Date.now(), shipmentNo, factoryShipmentNo, customerId, customer:state.customers[customerId].name, place, orderId, carrierId, factory:fi, type, pallets:num($('shipPallets').value), qty:c.quantity,
    buy:c.buy, customerUnitPrice:c.customerUnitPrice, inclusive:c.inclusive, transport:c.transport, advance:c.advance,
    arrival:c.arrival, debt:c.debt, factoryCost:c.factoryCost, brickRevenue:c.brickRevenue,
-   profit:c.profit, carrier, truck, status:'في مهمة', createdAt:new Date().toISOString()
+   profit:c.profit, stockDebtQty, stockDebtAmount, carrier, truck, status:'في مهمة', createdAt:new Date().toISOString()
  });
  rememberPlace(place,customerId); carrierObj.available=false; if(orderId){const o=state.orders.find(x=>String(x.id)===String(orderId));if(o)o.status='خرجت كشحنة';} save(); $('shipMsg').textContent=`تم تسجيل الشحنة #${shipmentNo}، والناقل الآن في مهمة ولن يظهر في قائمة المتاحين.`; renderAll();
 });
