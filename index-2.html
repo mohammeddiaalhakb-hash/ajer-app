@@ -1,0 +1,1286 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>إدارة الآجر والنقل — v1.8</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--accent:#2563eb;--danger:#b91c1c}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.app{display:grid;grid-template-columns:230px 1fr;min-height:100vh}.side{background:var(--card);border-left:1px solid var(--border);padding:16px;position:sticky;top:0;height:100vh}
+.side h1{font-size:18px;margin:0 0 16px}.nav{display:grid;gap:8px}.nav button,.btn{min-height:44px;border:1px solid var(--border);background:#fff;border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer}
+.nav button{text-align:right}.nav button.active,.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+main{padding:18px;min-width:0}.view{display:none}.view.active{display:block}.grid{display:grid;gap:12px}.g4{grid-template-columns:repeat(4,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px}.muted{color:var(--muted)}.stat strong{display:block;font-size:22px;margin-top:4px}
+label{display:grid;gap:6px;font-size:14px}input,select{min-height:44px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font:inherit;background:#fff;width:100%}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.list{display:grid;gap:10px;margin-top:12px}.item{border:1px solid var(--border);border-radius:12px;padding:12px;background:#fff}
+.item h3{margin:0 0 6px;font-size:16px}.small{font-size:13px}.ok{color:#166534}.danger{color:var(--danger)}
+table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:right;font-size:14px}th{background:#f9fafb}
+.scroll{overflow:auto}.section-title{margin:0 0 12px;font-size:18px}.notice{padding:10px 12px;border:1px dashed var(--border);border-radius:10px;background:#fafafa}
+@media(max-width:850px){.app{grid-template-columns:1fr}.side{position:static;height:auto;border-left:0;border-bottom:1px solid var(--border)}.nav{grid-template-columns:repeat(2,minmax(0,1fr))}.g4,.g3,.g2{grid-template-columns:1fr}main{padding:12px}}
+
+@media print{
+  .side,.nav,.btn,#paymentPanel{display:none!important}
+  .app{display:block!important}
+  main{padding:0!important}
+  body{background:#fff!important}
+  .card,.item{box-shadow:none!important;border:0!important}
+}
+
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="إدارة الآجر">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <h1>إدارة الآجر والنقل</h1>
+    <div class="nav">
+      <button data-view="home" class="active">الرئيسية</button>
+      <button data-view="factories">المصانع والمخزون</button>
+      <button data-view="orders">الطلبيات وأماكن التفريغ</button>
+      <button data-view="shipments">الشحنات</button>
+      <button data-view="customerManage">إدارة الزبائن</button><button data-view="customers">حساب الزبائن</button>
+      <button data-view="carrierManage">إدارة الناقلين</button><button data-view="carriers">حساب الناقلين</button>
+      <button data-view="profit">الفائدة</button>
+      <button data-view="backup">نسخة احتياطية</button>
+    </div>
+  </aside>
+
+  <main>
+    <section id="home" class="view active">
+      <div class="grid g4">
+        <div class="card stat"><span class="muted">ديون الزبائن</span><strong id="sCustomer">0.00 دج</strong><button id="toggleCustomerDebt" type="button" class="btn" style="margin-top:10px;width:100%">عرض ديون كل زبون</button></div>
+        <div class="card stat"><span class="muted">مقدمات الناقلين</span><strong id="sAdvance">0.00 دج</strong></div>
+        <div class="card stat"><span class="muted">ما يدفعه الزبائن للناقلين</span><strong id="sArrival">0.00 دج</strong></div>
+        <div class="card stat"><span class="muted">فائدة الآجر</span><strong id="sProfit">0.00 دج</strong></div><div class="card stat"><span class="muted">إجمالي عدد الشحنات</span><strong id="sShipmentCount">0</strong></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">عدد الشحنات حسب المصنع</h2>
+        <div id="homeFactoryShipmentCounts" class="grid g2"></div>
+      </div>
+      <div id="homeCustomerDebtDetails" class="card" style="margin-top:12px;display:none">
+        <h2 class="section-title">ديون الزبائن بالتفصيل</h2>
+        <div id="homeCustomerDebtRows" class="list"></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">قاعدة الحساب</h2>
+        <div class="notice small">السعر المتفق عليه مع الزبون شامل المصاريف. إذا دُفع للناقل مقدمًا، يدفع الزبون له فقط الباقي عند الوصول. ما يتبقى من السعر الشامل بعد دفع الناقل يدخل دينًا على الزبون. الفائدة تحسب من الآجر فقط.</div>
+      </div>
+      <div class="card" style="margin-top:12px"><h2 class="section-title">آخر الشحنات</h2><div id="recent" class="list"></div></div>
+    </section>
+
+    <section id="factories" class="view">
+      <div class="card">
+        <h2 class="section-title">إضافة مصنع</h2>
+        <form id="factoryForm" class="grid g3">
+          <label>اسم المصنع<input id="newFactory" required></label>
+          <label>سعر آجر 12<input id="p12" type="number" step="0.01" min="0" value="28.45" required></label>
+          <label>سعر آجر 8<input id="p8" type="number" step="0.01" min="0" value="24.80" required></label>
+          <div><button class="btn primary" type="submit">إضافة المصنع</button></div>
+        </form>
+      </div>
+
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">إضافة مخزون</h2>
+        <form id="stockForm" class="grid g4">
+          <label>المصنع<select id="stockFactory"></select></label>
+          <label>نوع الآجر<select id="stockType"><option>آجر 12</option><option>آجر 8</option></select></label>
+          <label>عدد الباليطات<input id="stockPallets" type="number" min="0" step="0.01" value="40" required></label>
+          <label>عدد الحبات تلقائيًا<input id="stockQty" type="number" readonly></label>
+          <label>سعر المصنع للحبة<input id="stockPrice" type="number" min="0" step="0.01" value="28.45" required></label>
+          <div><button class="btn primary" type="submit">إضافة للمخزون</button></div>
+        </form>
+        <div id="stockAddPreview" class="notice small" style="margin-top:10px"></div>
+      </div>
+
+
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">تسجيل دفعة للمصنع</h2>
+        <form id="factoryPaymentForm" class="grid g4">
+          <label>المصنع<select id="factoryPaymentFactory"></select></label>
+          <label>المبلغ<input id="factoryPaymentAmount" type="number" min="0.01" step="0.01" required></label>
+          <label>التاريخ والوقت<input id="factoryPaymentDate" type="datetime-local" required></label>
+          <label>ملاحظة<input id="factoryPaymentNote" placeholder="نقدًا / تحويل / ..."></label>
+          <div><button class="btn primary" type="submit">حفظ الدفعة</button></div>
+        </form>
+      </div>
+      <div id="factoryCards" class="list"></div>
+    </section>
+
+
+    <datalist id="savedPlaces"></datalist>
+    <section id="orders" class="view">
+      <div class="card">
+        <h2 class="section-title">تسجيل طلبية</h2>
+        <form id="orderForm" class="grid g4">
+          <label>الزبون<select id="orderCustomer"></select></label>
+          <label>مكان التفريغ
+  <input id="orderPlace" list="savedPlaces" required placeholder="اكتب المكان أول مرة أو اختر مكانًا محفوظًا">
+</label>
+          <label>المصنع المطلوب<select id="orderFactory"></select></label>
+          <label>نوع الآجر<select id="orderType"><option>آجر 12</option><option>آجر 8</option></select></label>
+          <label>عدد الباليطات<input id="orderPallets" type="number" min="0.01" step="0.01" value="1" required></label>
+          <label>عدد الحبات تلقائيًا<input id="orderQty" type="number" readonly></label>
+          <label>التاريخ والوقت<input id="orderDate" type="datetime-local" required></label>
+          <div><button class="btn primary" type="submit">حفظ الطلبية</button></div>
+          <div class="notice small">أول مرة أدخل البيانات يدويًا، وبعدها سيقترح التطبيق آخر بيانات استُعملت لهذا الزبون/المكان.</div>
+        </form>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h2 class="section-title">الطلبيات المسجلة</h2>
+        <div id="orderRows" class="list"></div>
+      </div>
+    </section>
+
+    <section id="shipments" class="view">
+      <div class="card">
+        <h2 class="section-title">شحنة جديدة</h2>
+        <form id="shipForm" class="grid g4">
+          <label>الطلبية (اختياري)<select id="shipmentOrder"><option value="">بدون طلبية</option></select></label>
+          <label>الزبون<select id="customer"></select></label>
+          <label>مكان تفريغ الشحنة
+  <input id="shipmentPlace" list="savedPlaces" required placeholder="اكتب المكان أول مرة أو اختر مكانًا محفوظًا">
+</label>
+          <label>المصنع<select id="shipFactory"></select></label>
+          <label>نوع الآجر<select id="brickType"><option>آجر 12</option><option>آجر 8</option></select></label>
+          <label>عدد الباليطات للشحنة<input id="shipPallets" type="number" min="0.01" step="0.01" value="1" required></label><label>عدد الحبات تلقائيًا<input id="qty" type="number" readonly></label>
+          <label>سعر المصنع للوحدة<input id="buyPrice" readonly></label>
+          <label>سعر الوحدة للزبون<input id="customerUnitPrice" type="number" min="0" step="0.01" value="0" required></label>
+          <label>السعر الإجمالي الشامل للزبون<input id="inclusive" type="number" min="0" step="0.01" readonly></label>
+          <label>حق النقل الكامل<input id="transport" type="number" min="0" step="0.01" value="20000" required></label>
+          <label>مقدم للناقل قبل الانطلاق<input id="advance" type="number" min="0" step="0.01" value="0"></label>
+          <label>الناقل المتاح<select id="carrier"></select></label>
+          <label>هاتف الناقل<input id="carrierPhone" readonly></label>
+          <label>لوحة الشاحنة<select id="truck"></select></label>
+        </form>
+        <div id="preview" class="notice" style="margin-top:12px"></div>
+        <div class="row" style="margin-top:12px"><button id="confirmShipment" class="btn primary" type="button">تأكيد الشحنة</button><span id="shipMsg" class="small"></span></div>
+      </div>
+      <div class="card" style="margin-top:12px"><h2 class="section-title">سجل الشحنات</h2><div class="scroll"><table><thead><tr><th>رقم الشحنة</th><th>التاريخ والوقت</th><th>الزبون</th><th>مكان التفريغ</th><th>المصنع</th><th>النوع</th><th>الكمية</th><th>اسم السائق</th><th>لوحة الشاحنة</th><th>الشامل</th><th>دفع للناقل</th><th>دين الزبون</th><th>الفائدة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody id="shipTable"></tbody></table></div></div>
+    </section>
+
+
+    <section id="customerManage" class="view">
+      <div class="card">
+        <h2 class="section-title">إدارة الزبائن</h2>
+        <form id="customerForm" class="grid g3">
+          <label>اسم الزبون<input id="customerName" required></label>
+          <label>رقم الهاتف<input id="customerPhone" inputmode="tel" placeholder="مثال: 0550 00 00 00" required></label>
+          <div class="row" style="align-items:end">
+            <button id="saveCustomerBtn" class="btn primary" type="submit">إضافة الزبون</button>
+            <button id="cancelCustomerEdit" class="btn" type="button" style="display:none">إلغاء التعديل</button>
+          </div>
+        </form>
+        <div id="customerManageRows" class="list"></div>
+      </div>
+    </section>
+    <section id="customers" class="view">
+      <div class="card">
+        <h2 class="section-title">حساب الزبائن</h2>
+        <div id="paymentPanel" class="notice" style="display:none;margin-bottom:12px">
+          <div class="row" style="justify-content:space-between">
+            <strong id="paymentCustomerTitle">تسجيل دفعة</strong>
+            <button id="closePaymentPanel" type="button" class="btn">إغلاق</button>
+          </div>
+          <form id="customerPaymentForm" class="grid g3" style="margin-top:10px">
+            <input id="paymentCustomerId" type="hidden">
+            <label>المبلغ<input id="paymentAmount" type="number" min="0.01" step="0.01" required></label>
+            <label>التاريخ والوقت<input id="paymentDate" type="datetime-local" required></label>
+            <label>ملاحظة<input id="paymentNote" placeholder="مثال: تحويل بنكي / نقدًا"></label>
+            <div><button class="btn primary" type="submit">حفظ الدفعة</button></div>
+          </form>
+        </div>
+        <div id="customerCards" class="list"></div>
+      </div>
+    </section>
+
+    <section id="carrierManage" class="view">
+      <div class="card">
+        <h2 class="section-title">إدارة الناقلين</h2>
+        <form id="carrierForm" class="grid g4">
+          <label>اسم الناقل / السائق<input id="carrierManageName" required></label>
+          <label>رقم الهاتف (اختياري)<input id="carrierManagePhone" inputmode="tel" placeholder="أضفه لاحقًا إن أردت"></label>
+          <label>لوحة الشاحنة<input id="carrierManagePlate" required></label>
+          <div class="row" style="align-items:end">
+            <button id="saveCarrierBtn" class="btn primary" type="submit">إضافة الناقل</button>
+            <button id="cancelCarrierEdit" class="btn" type="button" style="display:none">إلغاء التعديل</button>
+          </div>
+        </form>
+        <div id="carrierManageRows" class="list"></div>
+      </div>
+    </section>
+    <section id="carriers" class="view"><div class="card"><h2 class="section-title">حساب السائقين / الناقلين</h2><div id="carrierCards" class="list"></div></div></section>
+    <section id="profit" class="view"><div class="card"><h2 class="section-title">الفائدة من الآجر فقط</h2><div id="profitCards" class="list"></div></div></section>
+
+    <section id="backup" class="view">
+      <div class="card">
+        <h2 class="section-title">النسخة الاحتياطية</h2>
+        <p class="muted">البيانات محفوظة على هذا الجهاز. يمكنك تنزيل نسخة احتياطية واستعادتها لاحقًا.</p>
+        <div class="row">
+          <button id="exportBtn" class="btn primary" type="button">تنزيل نسخة احتياطية</button>
+          <label class="btn" style="display:inline-flex;align-items:center;cursor:pointer">استعادة نسخة<input id="importFile" type="file" accept="application/json" style="display:none"></label>
+          <button id="resetBtn" class="btn" type="button">مسح كل البيانات</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const KEY='ajer_transport_app_v7';
+const money=v=>new Intl.NumberFormat('ar-DZ',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.round((Number(v)||0)*100)/100)+' دج';
+const qfmt=v=>new Intl.NumberFormat('ar-DZ').format(v)+' آجرة';
+const num=v=>Math.max(0,parseFloat(v)||0);
+const int=v=>Math.max(0,Math.floor(Number(v)||0));
+const r2=v=>Math.round((Number(v)+Number.EPSILON)*100)/100;
+const PALLET_SIZE={'آجر 12':116,'آجر 8':176};
+const CARRIER_ARABIC_NAMES={
+"AICH KAMEL":"عيش كمال",
+"AOUDJERA MOHAMMED":"عوجرة محمد",
+"AZIZI NOUREDDIN":"عزيزي نور الدين",
+"BEN DJOUDI AYMEN":"بن جودي أيمن",
+"BEN DJOUDI DJAMEL":"بن جودي جمال",
+"BEN DJOUDI LAHCEN":"بن جودي لحسن",
+"BEN DJOUDI MOHAMMED":"بن جودي محمد",
+"BEN KOURAICHI SALIM":"بن قريشي سليم",
+"BOUAZIZ CHAABAN":"بوعزيز شعبان",
+"BOUDOUDA BEN AMOUR":"بودودة بن عمور",
+"BOUZID DJILALI":"بوزيد جيلالي",
+"CHIKHE ABDELHAK":"شيخ عبد الحق",
+"DAHDI AHMED":"دهدي أحمد",
+"DELAH REDA":"دلاح رضا",
+"GANDOUZ GHIHI":"قندوز غيهي",
+"HABALE ABDELLAH":"حبال عبد الله",
+"HAFID NASER":"حافيد ناصر",
+"HAFIDI ABDELLAH":"حافيدي عبد الله",
+"HATEM HMISSI":"حاتم حميسي",
+"MAELOEFI YASAF":"معلوفي يوسف",
+"MAJAHD MASTAFA":"مجاهد مصطفى",
+"MELAKHSOU HAMZA":"ملاخصو حمزة",
+"MOURAD MEKKI":"مراد مكي",
+"OKBI NOUREDDINE":"عقبي نور الدين",
+"SAADI ABDELHAK":"سعدي عبد الحق",
+"SALMANI ABDELFATAH":"سلماني عبد الفتاح",
+"TAIB BAY":"طيب باي",
+"TAIB RACHID":"طيب رشيد",
+"TAYEB BAY NABIL":"طيب باي نبيل",
+"WADAH BILALE":"وضاح بلال",
+"WANAS BILAL":"وناس بلال",
+"ZAROUKI AMER":"زروقي عامر"
+};
+const PRELOADED_CARRIERS=[
+{"name":"عيش كمال","plates":["08280-582-28"],"phone":""},
+{"name":"عوجرة محمد","plates":["000188-507-05"],"phone":""},
+{"name":"عزيزي نور الدين","plates":["000348-592-28"],"phone":""},
+{"name":"بن جودي أيمن","plates":["005789-584-28","005879-584-28"],"phone":""},
+{"name":"بن جودي جمال","plates":["500541-583-28"],"phone":""},
+{"name":"بن جودي لحسن","plates":["009457-510-28"],"phone":""},
+{"name":"بن جودي محمد","plates":["018979-583-28"],"phone":""},
+{"name":"بن قريشي سليم","plates":["000536-512-05"],"phone":""},
+{"name":"بوعزيز شعبان","plates":["010289-583-28"],"phone":""},
+{"name":"بودودة بن عمور","plates":["002109-585-03"],"phone":""},
+{"name":"بوزيد جيلالي","plates":["006504-587-28"],"phone":""},
+{"name":"حاتم حميسي","plates":["003547-594-28"],"phone":""},
+{"name":"حافيد ناصر","plates":["04628-584-05"],"phone":""},
+{"name":"حافيدي عبد الله","plates":["006582-583-28","009582-583-28"],"phone":""},
+{"name":"حبال عبد الله","plates":["007306-595-28"],"phone":""},
+{"name":"دلاح رضا","plates":["500001-594-12"],"phone":""},
+{"name":"دهدي أحمد","plates":["000008-513-55"],"phone":""},
+{"name":"زروقي عامر","plates":["011050-588-28"],"phone":""},
+{"name":"سعدي عبد الحق","plates":["019611-508-28"],"phone":""},
+{"name":"سلماني عبد الفتاح","plates":["000498-511-05"],"phone":""},
+{"name":"شيخ عبد الحق","plates":["06481-588-28"],"phone":""},
+{"name":"طيب باي","plates":["012149-590-28"],"phone":""},
+{"name":"طيب باي نبيل","plates":["007212-586-28"],"phone":""},
+{"name":"طيب رشيد","plates":["013135-506-28","08602-583-03","08602-583-28"],"phone":""},
+{"name":"عقبي نور الدين","plates":["012420-587-28"],"phone":""},
+{"name":"قندوز غيهي","plates":["08569-508-28"],"phone":""},
+{"name":"معلوفي يوسف","plates":["00261-513-30"],"phone":""},
+{"name":"مجاهد مصطفى","plates":["001429-592-47"],"phone":""},
+{"name":"مراد مكي","plates":["010818-588-28"],"phone":""},
+{"name":"ملاخصو حمزة","plates":["000068-503-05"],"phone":""},
+{"name":"وضاح بلال","plates":["008957-591-28"],"phone":""},
+{"name":"وناس بلال","plates":["08744-507-28"],"phone":""}
+];
+const palletsFromPieces=(type,pieces)=>pieces/PALLET_SIZE[type];
+const piecesFromPallets=(type,pallets)=>Math.round((Number(pallets)||0)*PALLET_SIZE[type]);
+
+function defaultState(){return{factories:[],customers:[],carriers:[],shipments:[],customerPayments:[],factoryPurchases:[],factoryPayments:[],orders:[],savedPlaces:[]}}
+let state;
+try{state=JSON.parse(localStorage.getItem(KEY))||defaultState()}catch(e){state=defaultState()}
+if(!Array.isArray(state.customers)) state.customers=[];
+if(!Array.isArray(state.carriers)) state.carriers=[];
+if(!Array.isArray(state.customerPayments)) state.customerPayments=[];
+if(!Array.isArray(state.factoryPurchases)) state.factoryPurchases=[];
+if(!Array.isArray(state.factoryPayments)) state.factoryPayments=[];
+if(!Array.isArray(state.orders)) state.orders=[];
+if(!Array.isArray(state.savedPlaces)) state.savedPlaces=[];
+// تحديث قائمة الناقلين دون حذف بيانات الناقلين الموجودة على الهاتف.
+state.carriers.forEach(c=>{const k=String(c?.name||'').trim().replace(/\s+/g,' ').toUpperCase();if(CARRIER_ARABIC_NAMES[k])c.name=CARRIER_ARABIC_NAMES[k]});
+function normCarrierName(v){return String(v||'').trim().replace(/\s+/g,' ').toUpperCase()}
+function splitCarrierPlates(c){
+ const raw=Array.isArray(c?.plates)?c.plates:String(c?.plate||'').split('/');
+ return [...new Set(raw.map(x=>String(x||'').trim()).filter(Boolean))];
+}
+function mergePreloadedCarriers(){
+ PRELOADED_CARRIERS.forEach(seed=>{
+   const seedName=normCarrierName(seed.name);
+   let c=state.carriers.find(x=>normCarrierName(x.name)===seedName);
+   // مطابقة إضافية حسب اللوحة مع الحفاظ على الاسم والهاتف الموجودين لدى المستخدم.
+   if(!c){
+     c=state.carriers.find(x=>splitCarrierPlates(x).some(p=>(seed.plates||[]).includes(p)));
+   }
+   if(!c){
+     const plates=[...new Set(seed.plates||[])];
+     state.carriers.push({name:seed.name,phone:'',plates,plate:plates.join(' / '),available:true});
+     return;
+   }
+   const plates=[...new Set([...splitCarrierPlates(c),...(seed.plates||[])])];
+   c.plates=plates; c.plate=plates.join(' / ');
+   if(c.phone==null)c.phone='';
+   if(c.available==null)c.available=true;
+ });
+ localStorage.setItem(KEY,JSON.stringify(state));
+}
+mergePreloadedCarriers();
+
+function factoryPurchases(fi){return state.factoryPurchases.filter(x=>x.factory===fi)}
+function factoryPayments(fi){return state.factoryPayments.filter(x=>x.factory===fi)}
+function factoryStockDebtAmount(fi){return r2(state.shipments.filter(x=>x.factory===fi).reduce((a,x)=>a+(Number(x.stockDebtAmount)||0),0))}
+function factoryPurchased(fi){return r2(factoryPurchases(fi).reduce((a,x)=>a+(Number(x.amount)||0),0)+factoryStockDebtAmount(fi))}
+function factoryPaid(fi){return r2(factoryPayments(fi).reduce((a,x)=>a+(Number(x.amount)||0),0))}
+function factoryBalance(fi){return r2(factoryPurchased(fi)-factoryPaid(fi))}
+function factoryLedger(fi){
+ const rows=[];
+ factoryPurchases(fi).forEach(x=>rows.push({date:x.date||x.createdAt,desc:`شراء ${x.type} — ${qfmt(x.pallets)} باليط — ${qfmt(x.pieces)} حبة`,debit:x.amount,credit:0}));
+ state.shipments.filter(x=>x.factory===fi && Number(x.stockDebtAmount)>0).forEach(x=>rows.push({date:x.createdAt,desc:`دين مخزون — شحنة #${x.shipmentNo||'-'} — ${x.type} — ${qfmt(x.stockDebtQty||0)} حبة`,debit:x.stockDebtAmount,credit:0}));
+ factoryPayments(fi).forEach(x=>rows.push({date:x.date||x.createdAt,desc:`دفعة للمصنع${x.note?' — '+x.note:''}`,debit:0,credit:x.amount}));
+ rows.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+ let bal=0; return rows.map(x=>({...x,balance:(bal=r2(bal+x.debit-x.credit))}));
+}
+function printFactoryAccount(fi){
+ const f=state.factories[fi]; if(!f)return;
+ const rows=factoryLedger(fi);
+ const bal=factoryBalance(fi);
+ const body=rows.map(x=>`<tr><td>${esc(fmtDate(x.date))}</td><td>${esc(x.desc)}</td><td>${x.debit?money(x.debit):'-'}</td><td>${x.credit?money(x.credit):'-'}</td><td>${x.balance>0?'دين '+money(x.balance):x.balance<0?'رصيد '+money(Math.abs(x.balance)):money(0)}</td></tr>`).join('');
+ const w=window.open('','_blank'); if(!w){alert('اسمح بالنوافذ المنبثقة للطباعة.');return}
+ w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حساب ${esc(f.name)}</title><style>body{font-family:Arial;padding:24px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:8px;text-align:right}th{background:#eee}@media print{button{display:none}}</style></head><body><h1>كشف حساب المصنع — ${esc(f.name)}</h1><p>إجمالي المشتريات: <strong>${money(factoryPurchased(fi))}</strong> | إجمالي المدفوع: <strong>${money(factoryPaid(fi))}</strong> | ${bal>0?'الدين للمصنع':bal<0?'رصيد لصالحنا':'الرصيد'}: <strong>${money(Math.abs(bal))}</strong></p><table><thead><tr><th>التاريخ</th><th>البيان</th><th>مشتريات</th><th>دفعات</th><th>الرصيد</th></tr></thead><tbody>${body||'<tr><td colspan="5">لا توجد حركات</td></tr>'}</tbody></table><button onclick="print()">طباعة</button></body></html>`);w.document.close();setTimeout(()=>{w.focus();w.print()},300);
+}
+
+function normalizePlace(v){return String(v||'').trim().replace(/\s+/g,' ')}
+function rememberPlace(place,customerId=null){
+ place=normalizePlace(place); if(!place)return;
+ let p=state.savedPlaces.find(x=>x.name.toLocaleLowerCase('ar')===place.toLocaleLowerCase('ar'));
+ if(!p){
+   p={id:Date.now()+Math.random(),name:place,customerIds:[],lastUsed:new Date().toISOString()};
+   state.savedPlaces.push(p);
+ }
+ if(customerId!==null && customerId!==undefined && !p.customerIds.includes(Number(customerId))) p.customerIds.push(Number(customerId));
+ p.lastUsed=new Date().toISOString();
+}
+function allKnownPlaces(){
+ const names=[];
+ state.savedPlaces.forEach(p=>names.push(p.name));
+ state.orders.forEach(o=>{if(o.place)names.push(o.place)});
+ state.shipments.forEach(s=>{if(s.place)names.push(s.place)});
+ return [...new Set(names.map(normalizePlace).filter(Boolean))];
+}
+function fillSavedPlaces(){
+ const dl=$('savedPlaces'); if(!dl)return;
+ dl.innerHTML=allKnownPlaces().map(p=>`<option value="${esc(p)}"></option>`).join('');
+}
+
+function lastShipmentForCustomer(customerId, place=null){
+  const id=Number(customerId);
+  let rows=state.shipments.filter(s=>s.customerId===id);
+  if(place){
+    const np=normalizePlace(place).toLocaleLowerCase('ar');
+    rows=rows.filter(s=>normalizePlace(s.place).toLocaleLowerCase('ar')===np);
+  }
+  return rows.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))[0]||null;
+}
+function lastOrderForCustomer(customerId, place=null){
+  const id=Number(customerId);
+  let rows=state.orders.filter(o=>o.customerId===id);
+  if(place){
+    const np=normalizePlace(place).toLocaleLowerCase('ar');
+    rows=rows.filter(o=>normalizePlace(o.place).toLocaleLowerCase('ar')===np);
+  }
+  return rows.slice().sort((a,b)=>new Date(b.date||b.createdAt||0)-new Date(a.date||a.createdAt||0))[0]||null;
+}
+function preferredDataForCustomer(customerId, place=null){
+  const s=lastShipmentForCustomer(customerId,place) || lastShipmentForCustomer(customerId);
+  const o=lastOrderForCustomer(customerId,place) || lastOrderForCustomer(customerId);
+  return {
+    place: place || s?.place || o?.place || lastPlaceForCustomer(customerId) || '',
+    factory: s?.factory ?? o?.factory ?? null,
+    type: s?.type || o?.type || 'آجر 12',
+    pallets: s?.pallets ?? (s?.qty && s?.type ? palletsFromPieces(s.type,s.qty) : null) ?? o?.pallets ?? null,
+    customerUnitPrice: s?.customerUnitPrice ?? (s?.qty ? r2((Number(s.inclusive)||0)/(Number(s.qty)||1)) : null),
+    transport: s?.transport ?? null,
+    carrierId: s?.carrierId ?? null
+  };
+}
+function applySmartOrderDefaults(force=false){
+  if(!$('orderCustomer')||$('orderCustomer').value==='')return;
+  const customerId=Number($('orderCustomer').value);
+  const existingPlace=normalizePlace($('orderPlace').value);
+  const d=preferredDataForCustomer(customerId,existingPlace||null);
+  if(d.place && (force || !$('orderPlace').value.trim())) $('orderPlace').value=d.place;
+  if(d.factory!==null && state.factories[d.factory] && (force || !$('orderFactory').value)) $('orderFactory').value=String(d.factory);
+  if(d.type && (force || !$('orderType').value)) $('orderType').value=d.type;
+  if(d.pallets && (force || !num($('orderPallets').value))) $('orderPallets').value=d.pallets;
+  syncOrderQty();
+}
+function applySmartShipmentDefaults(force=false){
+  if(!$('customer')||$('customer').value==='')return;
+  const customerId=Number($('customer').value);
+  const existingPlace=normalizePlace($('shipmentPlace').value);
+  const d=preferredDataForCustomer(customerId,existingPlace||null);
+  if(d.place && (force || !$('shipmentPlace').value.trim())) $('shipmentPlace').value=d.place;
+  if(d.factory!==null && state.factories[d.factory]) $('shipFactory').value=String(d.factory);
+  if(d.type) $('brickType').value=d.type;
+  if(d.pallets) $('shipPallets').value=d.pallets;
+  syncBuy(); syncShipmentPallets();
+  if(d.customerUnitPrice!=null && $('customerUnitPrice')) $('customerUnitPrice').value=d.customerUnitPrice;
+  if(d.transport!=null) $('transport').value=d.transport;
+  if(d.carrierId!=null && state.carriers[d.carrierId]?.available) $('carrier').value=String(d.carrierId);
+  preview();
+}
+
+function lastPlaceForCustomer(customerId){
+ const id=Number(customerId);
+ const movements=[
+   ...state.orders.filter(o=>o.customerId===id && o.place).map(o=>({place:o.place,date:o.date||o.createdAt||''})),
+   ...state.shipments.filter(s=>s.customerId===id && s.place).map(s=>({place:s.place,date:s.createdAt||''}))
+ ];
+ movements.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
+ return movements[0]?.place || state.savedPlaces.filter(p=>p.customerIds?.includes(id)).sort((a,b)=>new Date(b.lastUsed||0)-new Date(a.lastUsed||0))[0]?.name || '';
+}
+function suggestCustomerPlace(customerSelectId,placeInputId,force=false){
+ const sel=$(customerSelectId), input=$(placeInputId); if(!sel||!input||sel.value==='')return;
+ const place=lastPlaceForCustomer(Number(sel.value));
+ if(place && (force || !input.value.trim())) input.value=place;
+}
+
+function nextOrderNo(){return state.orders.reduce((m,o)=>Math.max(m,Number(o.orderNo)||0),0)+1}
+
+function normalizeShipmentNumbers(){
+  const counters={};
+  state.shipments.forEach((s,i)=>{
+    if(!s.shipmentNo) s.shipmentNo=i+1;
+    const fi=Number(s.factory)||0;
+    counters[fi]=(counters[fi]||0)+1;
+    if(!s.factoryShipmentNo) s.factoryShipmentNo=counters[fi];
+  });
+}
+normalizeShipmentNumbers();
+
+function normalizeCarrierAvailability(){
+ state.carriers.forEach(c=>c.available=true);
+ state.shipments.forEach(s=>{
+   if((s.status||'في مهمة')==='في مهمة' && s.carrierId!=null && state.carriers[s.carrierId]){
+     state.carriers[s.carrierId].available=false;
+   }
+ });
+}
+normalizeCarrierAvailability();
+
+const save=()=>localStorage.setItem(KEY,JSON.stringify(state));
+function nextShipmentNo(){
+  return state.shipments.reduce((mx,s)=>Math.max(mx,Number(s.shipmentNo)||0),0)+1;
+}
+function nextFactoryShipmentNo(factoryIndex){
+  return state.shipments.filter(s=>s.factory===factoryIndex).reduce((mx,s)=>Math.max(mx,Number(s.factoryShipmentNo)||0),0)+1;
+}
+function carrierShipments(carrierId){
+  return state.shipments.filter(s=>s.carrierId===carrierId);
+}
+function carrierPlaces(carrierId){
+  return [...new Set(carrierShipments(carrierId).map(s=>s.place).filter(Boolean))];
+}
+function customerShipments(customerId){
+  return state.shipments.filter(s=>s.customerId===customerId);
+}
+function customerPayments(customerId){
+  return state.customerPayments.filter(p=>p.customerId===customerId);
+}
+function customerCharges(customerId){
+  return r2(customerShipments(customerId).reduce((a,s)=>a+(Number(s.debt)||0),0));
+}
+function customerPaid(customerId){
+  return r2(customerPayments(customerId).reduce((a,p)=>a+(Number(p.amount)||0),0));
+}
+function customerBalance(customerId){
+  return r2(customerCharges(customerId)-customerPaid(customerId));
+}
+function fmtDate(v){
+  if(!v)return '-';
+  const d=new Date(v);
+  return Number.isNaN(d.getTime())?String(v):d.toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+function esc(v){
+  return String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function customerLedger(customerId){
+  const rows=[];
+  customerShipments(customerId).forEach(s=>{
+    rows.push({
+      date:s.createdAt||'',
+      type:'shipment',
+      refId:s.id,
+      description:`شحنة #${s.shipmentNo||'-'} — مكان التفريغ: ${s.place||'-'} — ${s.type} — ${qfmt(s.qty)} حبة — سعر الوحدة للزبون ${money(s.customerUnitPrice||((Number(s.qty)||0)?(Number(s.inclusive)||0)/(Number(s.qty)||1):0))} — السعر الشامل ${money(s.inclusive)} — دفع للناقل ${money(s.arrival)}`,
+      debit:Number(s.debt)||0,
+      credit:0
+    });
+  });
+  customerPayments(customerId).forEach(p=>{
+    rows.push({
+      date:p.date||p.createdAt||'',
+      type:'payment',
+      refId:p.id,
+      description:`دفعة زبون${p.note?' — '+p.note:''}`,
+      debit:0,
+      credit:Number(p.amount)||0
+    });
+  });
+  rows.sort((a,b)=>new Date(a.date||0)-new Date(b.date||0));
+  let running=0;
+  return rows.map(r=>{
+    running=r2(running+r.debit-r.credit);
+    return {...r,running};
+  });
+}
+function balanceLabel(v){
+  if(v>0)return `دين على الزبون: <strong>${money(v)}</strong>`;
+  if(v<0)return `رصيد لصالح الزبون: <strong>${money(Math.abs(v))}</strong>`;
+  return `الحساب متوازن: <strong>${money(0)}</strong>`;
+}
+function printCustomerAccount(customerId){
+  const c=state.customers[customerId]; if(!c)return;
+  const ledger=customerLedger(customerId);
+  const charges=customerCharges(customerId), paid=customerPaid(customerId), bal=customerBalance(customerId);
+  const rows=ledger.map(r=>`<tr><td>${esc(fmtDate(r.date))}</td><td>${esc(r.description)}</td><td>${r.debit?money(r.debit):'-'}</td><td>${r.credit?money(r.credit):'-'}</td><td>${r.running>0?'دين '+money(r.running):r.running<0?'رصيد '+money(Math.abs(r.running)):money(0)}</td></tr>`).join('');
+  const w=window.open('','_blank');
+  if(!w){alert('تعذر فتح نافذة الطباعة. اسمح بالنوافذ المنبثقة لهذا الموقع.');return}
+  w.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>كشف حساب ${esc(c.name)}</title><style>
+    body{font-family:Arial,Tahoma,sans-serif;padding:24px;color:#111}h1{margin:0 0 6px} .muted{color:#555}
+    .summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}.box{border:1px solid #ccc;padding:10px;border-radius:8px}
+    table{width:100%;border-collapse:collapse;margin-top:14px}th,td{border:1px solid #bbb;padding:8px;text-align:right;font-size:13px}th{background:#f2f2f2}
+    @media print{button{display:none}}
+  </style></head><body>
+    <h1>كشف حساب الزبون</h1><div><strong>${esc(c.name)}</strong></div><div class="muted">الهاتف: ${esc(c.phone||'-')}</div>
+    <div class="muted">أماكن التفريغ: ${esc([...new Set(customerShipments(customerId).map(s=>s.place).filter(Boolean))].join('، ')||'-')}</div>
+    <div class="summary"><div class="box">إجمالي المبالغ المستحقة<br><strong>${money(charges)}</strong></div><div class="box">إجمالي المدفوعات<br><strong>${money(paid)}</strong></div><div class="box">${bal>0?'الدين الحالي':bal<0?'رصيد لصالح الزبون':'الرصيد'}<br><strong>${money(Math.abs(bal))}</strong></div></div>
+    <table><thead><tr><th>التاريخ والوقت</th><th>البيان</th><th>مدين</th><th>دائن / دفعة</th><th>الرصيد بعد الحركة</th><th>إجراء</th></tr></thead><tbody>${rows||'<tr><td colspan="5">لا توجد حركات.</td></tr>'}</tbody></table>
+    <p class="muted">تاريخ الطباعة: ${esc(fmtDate(new Date().toISOString()))}</p>
+    <button onclick="window.print()">طباعة</button>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{w.focus();w.print();},300);
+}
+
+const $=id=>document.getElementById(id);
+
+document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>{
+ document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));
+ b.classList.add('active');
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+ $(b.dataset.view).classList.add('active');
+}));
+
+function fillFactories(){
+ ['stockFactory','shipFactory','orderFactory','factoryPaymentFactory'].forEach(id=>{
+   const el=$(id), old=el.value;
+   el.innerHTML=state.factories.length
+     ? state.factories.map((f,i)=>`<option value="${i}">${f.name}</option>`).join('')
+     : '<option value="">أضف مصنعًا أولًا</option>';
+   if(state.factories[Number(old)]) el.value=old;
+ });
+}
+
+
+function fillCustomers(){
+ ['customer','orderCustomer'].forEach(id=>{
+   const el=$(id), old=el.value;
+   el.innerHTML=state.customers.length
+     ? state.customers.map((c,i)=>`<option value="${i}">${c.name}${c.phone?' — '+c.phone:''}</option>`).join('')
+     : '<option value="">أضف زبونًا أولًا</option>';
+   if(state.customers[Number(old)]) el.value=old;
+ });
+}
+
+function fillCarriers(){
+ const el=$('carrier'), old=el.value;
+ const available=state.carriers.map((c,i)=>({...c,index:i})).filter(c=>c.available!==false);
+ el.innerHTML=available.length
+   ? available.map(c=>`<option value="${c.index}">${c.name} — ${c.plate}</option>`).join('')
+   : '<option value="">لا يوجد ناقل متاح حاليًا</option>';
+ if(available.some(c=>String(c.index)===String(old))) el.value=old;
+ syncCarrierDetails();
+}
+
+function syncCarrierDetails(){
+ const value=$('carrier').value;
+ const truckEl=$('truck');
+ if(value===''){
+   if($('carrierPhone')) $('carrierPhone').value='';
+   if(truckEl) truckEl.innerHTML='<option value="">-</option>';
+   return;
+ }
+ const c=state.carriers[Number(value)];
+ if($('carrierPhone')) $('carrierPhone').value=c?.phone||'';
+ if(truckEl){
+   const plates=splitCarrierPlates(c);
+   truckEl.innerHTML=plates.length?plates.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join(''):'<option value="">-</option>';
+ }
+}
+function currentStock(){
+ const fi=$('shipFactory').value;
+ if(fi==='') return null;
+ const f=state.factories[Number(fi)];
+ return f ? f.stocks[$('brickType').value] : null;
+}
+
+function syncBuy(){
+ const s=currentStock();
+ $('buyPrice').value=s?s.price.toFixed(2):'0.00';
+ preview();
+}
+
+function calc(){
+ const quantity=int($('qty').value);
+ const buy=num($('buyPrice').value);
+ const customerUnitPrice=Math.max(0,num($('customerUnitPrice').value));
+ const transport=num($('transport').value);
+ const factoryCost=r2(quantity*buy);
+ const inclusive=r2(quantity*customerUnitPrice);
+ $('inclusive').value=inclusive;
+ const advance=Math.min(num($('advance').value),transport);
+ const arrival=r2(Math.max(0,transport-advance));
+ const debt=r2(Math.max(0,inclusive-arrival));
+ const brickRevenue=r2(Math.max(0,inclusive-transport));
+ const profit=r2(brickRevenue-factoryCost);
+ return {quantity,buy,customerUnitPrice,inclusive,transport,advance,arrival,debt,factoryCost,brickRevenue,profit};
+}
+
+function preview(){
+ const c=calc();
+ $('preview').innerHTML=`السعر الشامل: <strong>${money(c.inclusive)}</strong> | مقدم الناقل: <strong>${money(c.advance)}</strong> | يدفع الزبون للناقل عند الوصول: <strong>${money(c.arrival)}</strong> | دين الزبون: <strong>${money(c.debt)}</strong> | فائدة الآجر: <strong>${money(c.profit)}</strong>`;
+}
+
+function renderFactories(){
+ $('factoryCards').innerHTML=state.factories.length?state.factories.map((f,fi)=>{
+   const bal=factoryBalance(fi), ledger=factoryLedger(fi);
+   return `<div class="item">
+     <div class="row" style="justify-content:space-between;align-items:flex-start">
+       <div><h3>${esc(f.name)}</h3><div class="small">${bal>0?`دين للمصنع: <strong>${money(bal)}</strong>`:bal<0?`رصيد لصالحنا: <strong>${money(Math.abs(bal))}</strong>`:`الحساب متوازن: <strong>${money(0)}</strong>`}</div></div>
+       <button class="btn" type="button" data-print-factory="${fi}">طباعة كشف الحساب</button>
+     </div>
+     <div class="grid g2" style="margin-top:10px">
+       ${['آجر 12','آجر 8'].map(t=>{const s=f.stocks[t];return `<div class="notice"><strong>${t}</strong><div>الرصيد: <strong>${palletsFromPieces(t,s.qty).toFixed(2)} باليط</strong></div><div class="small muted">${qfmt(s.qty)} حبة • سعر الحبة ${money(s.price)}</div></div>`}).join('')}
+     </div>
+     <div class="small" style="margin-top:8px">إجمالي المستحق للمصنع: <strong>${money(factoryPurchased(fi))}</strong> • منها دين مخزون نقدي: <strong>${money(factoryStockDebtAmount(fi))}</strong> • المدفوع للمصنع: <strong>${money(factoryPaid(fi))}</strong> • عدد الحركات: ${ledger.length}</div>
+   </div>`;
+ }).join(''):'<div class="muted">لا يوجد مصنع بعد.</div>';
+}
+
+function syncOrderQty(){
+ if(!$('orderQty'))return;
+ $('orderQty').value=piecesFromPallets($('orderType').value,num($('orderPallets').value));
+}
+function fillShipmentOrders(){
+ const el=$('shipmentOrder'); if(!el)return;
+ const old=el.value;
+ const open=state.orders.filter(o=>(o.status||'جديدة')!=='خرجت كشحنة' && (o.status||'جديدة')!=='ملغاة');
+ el.innerHTML='<option value="">بدون طلبية</option>'+open.map(o=>`<option value="${o.id}">طلبية #${o.orderNo} — ${state.customers[o.customerId]?.name||'-'} — ${esc(o.place)}</option>`).join('');
+ if(open.some(o=>String(o.id)===String(old)))el.value=old;
+}
+function renderOrders(){
+ $('orderRows').innerHTML=state.orders.length?state.orders.slice().reverse().map(o=>`<div class="item">
+   <div class="row" style="justify-content:space-between"><div><strong>طلبية #${o.orderNo}</strong> — ${esc(state.customers[o.customerId]?.name||'-')}<div class="small"><strong>المكان:</strong> ${esc(o.place)} • ${o.type} • ${qfmt(o.pallets)} باليط • ${qfmt(o.qty)} حبة</div><div class="small muted">${esc(state.factories[o.factory]?.name||'-')} • ${fmtDate(o.date)} • الحالة: ${o.status||'جديدة'}</div></div>
+   <div class="row">${(o.status||'جديدة')==='جديدة'?`<button class="btn primary" type="button" data-order-to-shipment="${o.id}">تحويل إلى شحنة</button><button class="btn" type="button" data-cancel-order="${o.id}">إلغاء</button>`:''}</div></div>
+ </div>`).join(''):'<div class="muted">لا توجد طلبيات بعد.</div>';
+}
+function loadOrderIntoShipment(id){
+ const o=state.orders.find(x=>String(x.id)===String(id)); if(!o)return;
+ $('shipmentOrder').value=String(o.id); $('customer').value=String(o.customerId); $('shipmentPlace').value=o.place||'';
+ $('shipFactory').value=String(o.factory); $('brickType').value=o.type; $('shipPallets').value=o.pallets;
+ syncBuy(); syncShipmentPallets();
+}
+
+function renderShipments(){
+ $('shipTable').innerHTML=state.shipments.slice().reverse().map(s=>`
+ <tr><td><strong>#${s.shipmentNo||'-'}</strong></td><td>${s.createdAt?new Date(s.createdAt).toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'-'}</td><td>${s.customerId!=null?(state.customers[s.customerId]?.name||'-'):s.customer}</td><td>${esc(s.place||'-')}</td><td>${state.factories[s.factory]?.name||''}</td><td>${s.type}</td><td>${qfmt(s.qty)}</td><td>${s.carrier||'-'}</td><td>${s.truck||'-'}</td><td>${money(s.inclusive)}</td><td>${money(s.arrival)}</td><td>${money(s.debt)}</td><td>${money(s.profit)}</td><td>${s.status||'في مهمة'}</td><td><div class="row">${(s.status||'في مهمة')==='في مهمة'?`<button type="button" class="btn primary" data-complete-shipment="${s.id}">تم التسليم</button>`:''}<button type="button" class="btn" data-edit-shipment="${s.id}">تعديل</button><button type="button" class="btn" data-delete-shipment="${s.id}">حذف</button></div></td></tr>`).join('');
+}
+
+
+function renderCustomerManage(){
+ $('customerManageRows').innerHTML=state.customers.length?state.customers.map((c,i)=>`
+   <div class="item">
+     <div class="row" style="justify-content:space-between">
+       <div>
+         <h3>${c.name}</h3>
+         <div class="small muted">الهاتف: ${c.phone||'-'} • أماكن التفريغ: ${esc(carrierPlaces(i).join('، ')||'-')}</div>
+       </div>
+       <div class="row">
+         <button type="button" class="btn" data-edit-customer="${i}">تعديل</button>
+         <button type="button" class="btn" data-delete-customer="${i}">حذف</button>
+       </div>
+     </div>
+   </div>`).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
+}
+function renderCustomers(){
+ $('customerCards').innerHTML=state.customers.length?state.customers.map((c,id)=>{
+   const ss=customerShipments(id);
+   const inclusive=ss.reduce((a,s)=>a+(Number(s.inclusive)||0),0);
+   const arrival=ss.reduce((a,s)=>a+(Number(s.arrival)||0),0);
+   const charges=customerCharges(id);
+   const paid=customerPaid(id);
+   const bal=customerBalance(id);
+   const ledger=customerLedger(id);
+   const ledgerRows=ledger.slice().reverse().map(r=>`
+     <tr>
+       <td>${fmtDate(r.date)}</td>
+       <td>${esc(r.description)}</td>
+       <td>${r.debit?money(r.debit):'-'}</td>
+       <td>${r.credit?money(r.credit):'-'}</td>
+       <td>${r.running>0?`دين ${money(r.running)}`:r.running<0?`رصيد ${money(Math.abs(r.running))}`:money(0)}</td>
+       <td>${r.type==='payment'?`<button type="button" class="btn" data-edit-payment="${r.refId}">تعديل</button> <button type="button" class="btn" data-delete-payment="${r.refId}">حذف</button>`:r.type==='shipment'?`<button type="button" class="btn" data-edit-shipment="${r.refId}">تعديل الشحنة</button>`:''}</td>
+     </tr>`).join('');
+   return `<div class="item">
+     <div class="row" style="justify-content:space-between;align-items:flex-start">
+       <div><h3>${esc(c.name)}</h3><div class="small muted">الهاتف: ${esc(c.phone||'-')}</div><div class="small muted">أماكن التفريغ: ${esc([...new Set(ss.map(s=>s.place).filter(Boolean))].join('، ')||'-')}</div></div>
+       <div class="row">
+         <button type="button" class="btn primary" data-add-payment="${id}">تسجيل دفعة</button>
+         <button type="button" class="btn" data-print-customer="${id}">طباعة كشف الحساب</button>
+         <button type="button" class="btn" data-edit-customer="${id}">تعديل</button>
+         <button type="button" class="btn" data-delete-customer="${id}">حذف</button>
+       </div>
+     </div>
+     <div class="grid g3" style="margin-top:10px">
+       <div class="notice small">إجمالي الشحنات الشاملة<br><strong>${money(inclusive)}</strong></div>
+       <div class="notice small">دفع للناقلين عند الوصول<br><strong>${money(arrival)}</strong></div>
+       <div class="notice small">المبالغ المستحقة لنا<br><strong>${money(charges)}</strong></div>
+       <div class="notice small">إجمالي مدفوعات الزبون<br><strong>${money(paid)}</strong></div>
+       <div class="notice small">${balanceLabel(bal)}</div>
+     </div>
+     <details style="margin-top:12px">
+       <summary style="cursor:pointer;font-weight:700">عرض كشف الحساب الكامل بالتاريخ (${ledger.length} حركة)</summary>
+       <div class="scroll" style="margin-top:10px"><table>
+         <thead><tr><th>التاريخ والوقت</th><th>البيان</th><th>مدين</th><th>دائن / دفعة</th><th>الرصيد بعد الحركة</th><th>إجراء</th></tr></thead>
+         <tbody>${ledgerRows||'<tr><td colspan="6">لا توجد حركات بعد.</td></tr>'}</tbody>
+       </table></div>
+     </details>
+   </div>`;
+ }).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
+}
+
+
+function renderCarrierManage(){
+ const sortedCarriers=state.carriers.map((c,i)=>({c,i})).sort((a,b)=>String(a.c.name||'').localeCompare(String(b.c.name||''),'ar',{sensitivity:'base'}));
+ $('carrierManageRows').innerHTML=sortedCarriers.length?sortedCarriers.map(({c,i})=>`
+   <div class="item">
+     <div class="row" style="justify-content:space-between">
+       <div>
+         <h3>${c.name}</h3>
+         <div class="small muted">الهاتف: ${c.phone||'غير مضاف'} • أماكن التفريغ: ${esc(carrierPlaces(i).join('، ')||'-')} • اللوحة: ${c.plate||'-'}</div>
+         <div class="small ${c.available===false?'danger':'ok'}">الحالة: <strong>${c.available===false?'في مهمة':'متاح'}</strong></div>
+       </div>
+       <div class="row">
+         <button type="button" class="btn" data-edit-carrier="${i}">تعديل</button>
+         <button type="button" class="btn" data-toggle-carrier="${i}">${c.available===false?'جعل متاح':'جعله في مهمة'}</button>
+         <button type="button" class="btn" data-delete-carrier="${i}">حذف</button>
+       </div>
+     </div>
+   </div>`).join(''):'<div class="muted">لا يوجد ناقلون بعد.</div>';
+}
+function renderCarriers(){
+ const ids=[...new Set(state.shipments.map(s=>s.carrierId!=null?s.carrierId:s.carrier).filter(v=>v!==undefined&&v!==null&&v!==''))];
+ $('carrierCards').innerHTML=ids.length?ids.map(id=>{
+   const c=typeof id==='number'?state.carriers[id]:null;
+   const name=c?.name || String(id);
+   const phone=c?.phone || '';
+   const plate=c?.plate || '';
+   const ss=state.shipments.filter(s=>(s.carrierId!=null?s.carrierId:s.carrier)===id);
+   const total=ss.reduce((a,s)=>a+s.transport,0);
+   const adv=ss.reduce((a,s)=>a+s.advance,0);
+   const arr=ss.reduce((a,s)=>a+s.arrival,0);
+   return `<div class="item"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>${name}</h3><div class="small muted">${phone?`الهاتف: ${phone}`:''}${plate?` • اللوحة: ${plate}`:''}</div></div>${typeof id==='number'?`<div class="row"><button type="button" class="btn" data-edit-carrier="${id}">تعديل</button><button type="button" class="btn" data-delete-carrier="${id}">حذف</button></div>`:''}</div><div class="small">حق النقل الكامل: <strong>${money(total)}</strong></div><div class="small">مدفوع قبل الانطلاق: <strong>${money(adv)}</strong></div><div class="small">دفع الزبائن عند الوصول: <strong>${money(arr)}</strong></div></div>`;
+ }).join(''):'<div class="muted">لا توجد حسابات ناقلين بعد.</div>';
+}
+
+function renderProfit(){
+ const total=state.shipments.reduce((a,s)=>a+s.profit,0);
+ $('profitCards').innerHTML=`<div class="item"><h3>إجمالي الفائدة</h3><strong style="font-size:24px">${money(total)}</strong></div>`+
+ state.shipments.slice().reverse().map(s=>`<div class="item"><div class="small">${s.customer} — ${s.type} — ${qfmt(s.qty)}</div><strong>${money(s.profit)}</strong></div>`).join('');
+}
+
+function renderHome(){
+ $('sCustomer').textContent=money(state.customers.reduce((a,c,i)=>a+Math.max(0,customerBalance(i)),0));
+ $('sAdvance').textContent=money(state.shipments.reduce((a,s)=>a+s.advance,0));
+ $('sArrival').textContent=money(state.shipments.reduce((a,s)=>a+s.arrival,0));
+ $('sProfit').textContent=money(state.shipments.reduce((a,s)=>a+s.profit,0));
+ if($('sShipmentCount')) $('sShipmentCount').textContent=state.shipments.length;
+
+ const customerIds=state.customers.map((_,i)=>i);
+ $('homeCustomerDebtRows').innerHTML=customerIds.length?customerIds.map(id=>{
+   const c=state.customers[id];
+   const bal=customerBalance(id);
+   return `<div class="item row" style="justify-content:space-between">
+     <div><strong>${esc(c.name)}</strong>${c.phone?`<div class="small muted">${esc(c.phone)}</div>`:''}</div>
+     <span>${bal>0?`الدين: <strong>${money(bal)}</strong>`:bal<0?`رصيد لصالحه: <strong>${money(Math.abs(bal))}</strong>`:`متوازن: <strong>${money(0)}</strong>`}</span>
+   </div>`;
+ }).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
+
+ $('homeFactoryShipmentCounts').innerHTML=state.factories.length?state.factories.map((f,fi)=>{
+   const ss=state.shipments.filter(s=>s.factory===fi);
+   const last=ss.reduce((mx,s)=>Math.max(mx,Number(s.factoryShipmentNo)||0),0);
+   return `<div class="item"><strong>${f.name}</strong>
+     <div class="small">عدد الشحنات: <strong>${ss.length}</strong></div>
+     <div class="small muted">آخر رقم شحنة للمصنع: ${last||0}</div>
+   </div>`;
+ }).join(''):'<div class="muted">لا توجد مصانع بعد.</div>';
+
+ $('recent').innerHTML=state.shipments.length?state.shipments.slice(-5).reverse().map(s=>`<div class="item">
+   <strong>الشحنة #${s.shipmentNo||'-'}</strong> — ${s.customerId!=null?(state.customers[s.customerId]?.name||'-'):s.customer} — ${s.type} — ${qfmt(s.qty)} — دين ${money(s.debt)}
+   <div class="small muted">${state.factories[s.factory]?.name||''} • شحنة المصنع رقم ${s.factoryShipmentNo||'-'} • ${s.createdAt?new Date(s.createdAt).toLocaleString('ar-DZ',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}):'-'} • السائق: ${s.carrier||'-'} • اللوحة: ${s.truck||'-'}</div>
+ </div>`).join(''):'<div class="muted">لا توجد شحنات بعد.</div>';
+}
+
+
+function syncStockForm(){
+ const type=$('stockType').value;
+ const pallets=num($('stockPallets').value);
+ const pieces=piecesFromPallets(type,pallets);
+ $('stockQty').value=pieces;
+ const p=$('stockAddPreview');
+ if(p) p.innerHTML=`${pallets.toFixed(2)} باليط × ${PALLET_SIZE[type]} حبة = <strong>${qfmt(pieces)}</strong>`;
+}
+
+function syncShipmentPallets(){
+ const type=$('brickType').value;
+ const pallets=num($('shipPallets').value);
+ $('qty').value=piecesFromPallets(type,pallets);
+ preview();
+}
+
+function renderAll(){
+ fillFactories(); fillCustomers(); fillCarriers(); fillShipmentOrders(); fillSavedPlaces(); renderFactories(); renderOrders(); renderCustomerManage(); renderCarrierManage(); renderShipments(); renderCustomers(); renderCarriers(); renderProfit(); renderHome(); syncBuy(); syncStockForm(); syncShipmentPallets();
+}
+
+$('factoryForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const name=$('newFactory').value.trim();
+ if(!name)return;
+ if(state.factories.some(f=>f.name===name)){alert('هذا المصنع موجود مسبقًا');return}
+ state.factories.push({name,stocks:{'آجر 12':{qty:0,price:r2(num($('p12').value))},'آجر 8':{qty:0,price:r2(num($('p8').value))}}});
+ save(); e.target.reset(); $('p12').value='28.45'; $('p8').value='24.80'; renderAll();
+});
+
+$('stockForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const f=state.factories[Number($('stockFactory').value)];
+ const t=$('stockType').value, add=piecesFromPallets(t,num($('stockPallets').value)), price=r2(num($('stockPrice').value));
+ if(!f){alert('أضف مصنعًا أولًا.');return}
+ if(add<1)return;
+ const s=f.stocks[t], oldValue=s.qty*s.price;
+ const pallets=num($('stockPallets').value);
+ s.qty+=add;
+ s.price=s.qty?r2((oldValue+add*price)/s.qty):price;
+ state.factoryPurchases.push({id:Date.now(),factory:Number($('stockFactory').value),type:t,pallets,pieces:add,unitPrice:price,amount:r2(add*price),date:new Date().toISOString(),createdAt:new Date().toISOString()});
+ save(); renderAll();
+});
+
+$('shipFactory').addEventListener('change',syncBuy);
+$('carrier').addEventListener('change',syncCarrierDetails);
+['transport','advance','customerUnitPrice'].forEach(id=>$(id).addEventListener('input',preview));
+
+let editingShipmentId=null;
+
+$('confirmShipment').addEventListener('click',()=>{
+ const customerId=$('customer').value===''?null:Number($('customer').value), place=$('shipmentPlace').value.trim(), orderId=$('shipmentOrder').value||null, carrierId=$('carrier').value===''?null:Number($('carrier').value), carrierObj=carrierId===null?null:state.carriers[carrierId], carrier=carrierObj?.name||'', truck=$('truck')?.value||splitCarrierPlates(carrierObj)[0]||'';
+ const fi=Number($('shipFactory').value), type=$('brickType').value, stock=state.factories[fi]?.stocks[type], c=calc();
+ $('shipMsg').textContent='';
+ if(!state.factories.length){$('shipMsg').textContent='أضف مصنعًا وأدخل مخزونه أولًا.';return}
+ if(customerId===null||!state.customers[customerId]){$('shipMsg').textContent='اختر الزبون.';return}
+ if(!place){$('shipMsg').textContent='سجل مكان تفريغ الشحنة.';return}
+ if(carrierId===null||!carrierObj||carrierObj.available===false){$('shipMsg').textContent='اختر ناقلًا متاحًا.';return}
+ if(!stock||c.quantity<1){$('shipMsg').textContent='تحقق من المصنع والكمية.';return}
+ if(num($('advance').value)>c.transport){$('shipMsg').textContent='مقدم الناقل أكبر من حق النقل.';return}
+ const availableBefore=Math.max(0,Number(stock.qty)||0);
+ const stockDebtQty=Math.max(0,c.quantity-availableBefore);
+ const stockDebtAmount=r2(stockDebtQty*c.buy);
+ stock.qty-=c.quantity;
+ let shipmentNo, factoryShipmentNo;
+ if(editingShipmentId!==null){
+   const idx=state.shipments.findIndex(x=>Number(x.id)===Number(editingShipmentId));
+   if(idx<0)return;
+   const old=state.shipments[idx];
+   shipmentNo=old.shipmentNo; factoryShipmentNo=old.factoryShipmentNo;
+   // أعد أثر الشحنة القديمة على المخزون قبل تطبيق القيم الجديدة.
+   const oldStock=state.factories[old.factory]?.stocks?.[old.type]; if(oldStock) oldStock.qty=(Number(oldStock.qty)||0)+(Number(old.qty)||0);
+   // أعد حساب دين المخزون بعد استرجاع الشحنة القديمة.
+   const newStock=state.factories[fi]?.stocks?.[type];
+   const avail=Math.max(0,Number(newStock?.qty)||0), newDebtQty=Math.max(0,c.quantity-avail), newDebtAmount=r2(newDebtQty*c.buy);
+   if(newStock) newStock.qty-=c.quantity;
+   if(old.carrierId!=null && state.carriers[old.carrierId] && (old.status||'في مهمة')==='في مهمة') state.carriers[old.carrierId].available=true;
+   state.shipments[idx]={...old,customerId,customer:state.customers[customerId].name,place,orderId,carrierId,factory:fi,type,pallets:num($('shipPallets').value),qty:c.quantity,buy:c.buy,customerUnitPrice:c.customerUnitPrice,inclusive:c.inclusive,transport:c.transport,advance:c.advance,arrival:c.arrival,debt:c.debt,factoryCost:c.factoryCost,brickRevenue:c.brickRevenue,profit:c.profit,stockDebtQty:newDebtQty,stockDebtAmount:newDebtAmount,carrier,truck};
+   if((old.status||'في مهمة')==='في مهمة') carrierObj.available=false;
+   editingShipmentId=null; $('confirmShipment').textContent='تأكيد الشحنة';
+   rememberPlace(place,customerId); save(); $('shipMsg').textContent=`تم حفظ تعديل الشحنة #${shipmentNo}.`; renderAll(); return;
+ }
+ shipmentNo=nextShipmentNo(); factoryShipmentNo=nextFactoryShipmentNo(fi);
+ state.shipments.push({
+   id:Date.now(), shipmentNo, factoryShipmentNo, customerId, customer:state.customers[customerId].name, place, orderId, carrierId, factory:fi, type, pallets:num($('shipPallets').value), qty:c.quantity,
+   buy:c.buy, customerUnitPrice:c.customerUnitPrice, inclusive:c.inclusive, transport:c.transport, advance:c.advance,
+   arrival:c.arrival, debt:c.debt, factoryCost:c.factoryCost, brickRevenue:c.brickRevenue,
+   profit:c.profit, stockDebtQty, stockDebtAmount, carrier, truck, status:'في مهمة', createdAt:new Date().toISOString()
+ });
+ rememberPlace(place,customerId); carrierObj.available=false; if(orderId){const o=state.orders.find(x=>String(x.id)===String(orderId));if(o)o.status='خرجت كشحنة';} save(); $('shipMsg').textContent=`تم تسجيل الشحنة #${shipmentNo}، والناقل الآن في مهمة ولن يظهر في قائمة المتاحين.`; renderAll();
+});
+
+
+
+
+$('orderCustomer').addEventListener('change',()=>applySmartOrderDefaults(true));
+$('customer').addEventListener('change',()=>applySmartShipmentDefaults(true));
+$('orderPlace').addEventListener('change',()=>{const p=normalizePlace($('orderPlace').value);$('orderPlace').value=p;applySmartOrderDefaults(false);});
+$('shipmentPlace').addEventListener('change',()=>{const p=normalizePlace($('shipmentPlace').value);$('shipmentPlace').value=p;applySmartShipmentDefaults(false);});
+$('orderType').addEventListener('change',syncOrderQty);
+$('orderPallets').addEventListener('input',syncOrderQty);
+$('shipmentOrder').addEventListener('change',()=>{if($('shipmentOrder').value)loadOrderIntoShipment($('shipmentOrder').value)});
+$('orderForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const customerId=$('orderCustomer').value===''?null:Number($('orderCustomer').value), factory=$('orderFactory').value===''?null:Number($('orderFactory').value);
+ const place=$('orderPlace').value.trim(), type=$('orderType').value, pallets=num($('orderPallets').value), qty=piecesFromPallets(type,pallets), raw=$('orderDate').value;
+ if(customerId===null||factory===null||!place||pallets<=0)return;
+ const d=new Date(raw);
+ rememberPlace(place,customerId); state.orders.push({id:Date.now(),orderNo:nextOrderNo(),customerId,factory,place:normalizePlace(place),type,pallets,qty,date:Number.isNaN(d.getTime())?raw:d.toISOString(),status:'جديدة',createdAt:new Date().toISOString()});
+ save(); e.target.reset(); $('orderPallets').value='1'; $('orderDate').value=localDateTimeValue(); syncOrderQty(); renderAll(); applySmartOrderDefaults(true);
+});
+$('factoryPaymentForm').addEventListener('submit',e=>{
+ e.preventDefault(); const factory=Number($('factoryPaymentFactory').value), amount=r2(num($('factoryPaymentAmount').value)), raw=$('factoryPaymentDate').value, note=$('factoryPaymentNote').value.trim();
+ if(!state.factories[factory]||amount<=0||!raw)return;
+ const d=new Date(raw); state.factoryPayments.push({id:Date.now(),factory,amount,date:Number.isNaN(d.getTime())?raw:d.toISOString(),note,createdAt:new Date().toISOString()});
+ save(); e.target.reset(); $('factoryPaymentDate').value=localDateTimeValue(); renderAll();
+});
+document.addEventListener('click',e=>{
+ const pf=e.target.closest('[data-print-factory]'); if(pf){printFactoryAccount(Number(pf.dataset.printFactory));return}
+ const os=e.target.closest('[data-order-to-shipment]'); if(os){document.querySelector('[data-view="shipments"]').click(); setTimeout(()=>loadOrderIntoShipment(os.dataset.orderToShipment),0);return}
+ const co=e.target.closest('[data-cancel-order]'); if(co){const o=state.orders.find(x=>String(x.id)===String(co.dataset.cancelOrder));if(o){o.status='ملغاة';save();renderAll()}return}
+});
+
+$('stockType').addEventListener('change',syncStockForm);
+$('stockPallets').addEventListener('input',syncStockForm);
+$('brickType').addEventListener('change',()=>{syncBuy();syncShipmentPallets()});
+$('shipPallets').addEventListener('input',syncShipmentPallets);
+
+document.addEventListener('input',e=>{
+ const p=e.target.closest('[data-edit-stock-pallets]');
+ if(p){
+   const fi=Number(p.dataset.editStockPallets), type=p.dataset.type;
+   const qInput=document.querySelector(`[data-edit-stock-qty="${fi}"][data-type="${type}"]`);
+   if(qInput) qInput.value=piecesFromPallets(type,num(p.value));
+   return;
+ }
+ const qInput=e.target.closest('[data-edit-stock-qty]');
+ if(qInput){
+   const fi=Number(qInput.dataset.editStockQty), type=qInput.dataset.type;
+   const pInput=document.querySelector(`[data-edit-stock-pallets="${fi}"][data-type="${type}"]`);
+   if(pInput) pInput.value=palletsFromPieces(type,int(qInput.value)).toFixed(2);
+ }
+});
+
+
+
+
+function loadShipmentForEdit(id){
+ const s=state.shipments.find(x=>Number(x.id)===Number(id)); if(!s)return;
+ editingShipmentId=Number(id);
+ $('customer').value=String(s.customerId??''); $('shipmentPlace').value=s.place||''; $('shipFactory').value=String(s.factory); $('brickType').value=s.type;
+ $('shipPallets').value=s.pallets??palletsFromPieces(s.type,s.qty); $('customerUnitPrice').value=s.customerUnitPrice??0; $('transport').value=s.transport??0; $('advance').value=s.advance??0;
+ fillCarriers(); if(s.carrierId!=null){const opt=[...$('carrier').options].find(o=>o.value===String(s.carrierId)); if(!opt){const o=document.createElement('option');o.value=String(s.carrierId);o.textContent=state.carriers[s.carrierId]?.name||s.carrier||'الناقل';$('carrier').appendChild(o)} $('carrier').value=String(s.carrierId)}
+ syncBuy(); syncCarrierDetails(); syncShipmentPallets(); $('confirmShipment').textContent=`حفظ تعديل الشحنة #${s.shipmentNo||'-'}`; $('shipMsg').textContent='أنت الآن تعدّل شحنة مسجلة. سيتم تحديث الحسابات والمخزون تلقائيًا.';
+ document.querySelector('[data-view="shipments"]').click(); window.scrollTo({top:0,behavior:'smooth'});
+}
+document.addEventListener('click',e=>{
+ const ed=e.target.closest('[data-edit-shipment]'); if(ed){loadShipmentForEdit(ed.dataset.editShipment);return}
+ const del=e.target.closest('[data-delete-shipment]'); if(del){
+   const id=Number(del.dataset.deleteShipment), idx=state.shipments.findIndex(x=>Number(x.id)===id); if(idx<0)return; const s=state.shipments[idx];
+   if(!confirm(`حذف الشحنة #${s.shipmentNo||'-'}؟ سيتم تحديث حساب الزبون والناقل والمخزون.`) || !confirm('تأكيد أخير: حذف هذه الشحنة نهائيًا؟'))return;
+   const stock=state.factories[s.factory]?.stocks?.[s.type]; if(stock)stock.qty=(Number(stock.qty)||0)+(Number(s.qty)||0);
+   if(s.carrierId!=null&&state.carriers[s.carrierId]&&(s.status||'في مهمة')==='في مهمة')state.carriers[s.carrierId].available=true;
+   if(s.orderId){const o=state.orders.find(x=>String(x.id)===String(s.orderId));if(o)o.status='جديدة'}
+   state.shipments.splice(idx,1); save(); renderAll(); return;
+ }
+});
+
+let editingCarrierIndex=null;
+
+$('carrierForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const name=$('carrierManageName').value.trim();
+ const phone=$('carrierManagePhone').value.trim();
+ const plate=$('carrierManagePlate').value.trim();
+ if(!name||!plate)return;
+ const plates=[...new Set(plate.split('/').map(x=>x.trim()).filter(Boolean))];
+ if(editingCarrierIndex===null){
+   const existingIndex=state.carriers.findIndex(c=>normCarrierName(c.name)===normCarrierName(name));
+   if(existingIndex>=0){
+     const old=state.carriers[existingIndex];
+     const merged=[...new Set([...splitCarrierPlates(old),...plates])];
+     old.plates=merged; old.plate=merged.join(' / ');
+     if(phone) old.phone=phone;
+   }else{
+     state.carriers.push({name,phone,plates,plate:plates.join(' / '),available:true});
+   }
+ }else{
+   const old=state.carriers[editingCarrierIndex];
+   state.carriers[editingCarrierIndex]={name,phone,plates,plate:plates.join(' / '),available:old.available!==false};
+ }
+ save(); editingCarrierIndex=null; e.target.reset();
+ $('saveCarrierBtn').textContent='إضافة الناقل'; $('cancelCarrierEdit').style.display='none'; renderAll();
+});
+
+$('cancelCarrierEdit').addEventListener('click',()=>{
+ editingCarrierIndex=null;
+ $('carrierForm').reset();
+ $('saveCarrierBtn').textContent='إضافة الناقل';
+ $('cancelCarrierEdit').style.display='none';
+});
+
+document.addEventListener('click',e=>{
+ const edit=e.target.closest('[data-edit-carrier]');
+ if(edit){
+   const i=Number(edit.dataset.editCarrier), c=state.carriers[i];
+   if(!c)return;
+   editingCarrierIndex=i;
+   $('carrierManageName').value=c.name;
+   $('carrierManagePhone').value=c.phone||'';
+   $('carrierManagePlate').value=c.plate||'';
+   $('saveCarrierBtn').textContent='حفظ التعديل';
+   $('cancelCarrierEdit').style.display='inline-block';
+   document.querySelector('[data-view="carrierManage"]').click();
+   return;
+ }
+ const toggle=e.target.closest('[data-toggle-carrier]');
+ if(toggle){
+   const i=Number(toggle.dataset.toggleCarrier), c=state.carriers[i];
+   if(!c)return;
+   c.available=c.available===false;
+   save(); renderAll(); return;
+ }
+ const del=e.target.closest('[data-delete-carrier]');
+ if(del){
+   const i=Number(del.dataset.deleteCarrier), c=state.carriers[i];
+   if(!c)return;
+   const used=state.shipments.some(s=>s.carrierId===i);
+   if(used){alert('لا يمكن حذف هذا الناقل لأنه مرتبط بشحنات مسجلة. يمكنك تعديل بياناته بدلًا من حذفه.');return}
+   if(confirm(`تأكيد الحذف: هل تريد حذف الناقل ${c.name}؟\nلا يمكن التراجع عن هذه العملية.`) && confirm('تأكيد أخير: حذف الناقل نهائيًا؟')){
+     state.carriers.splice(i,1);
+     state.shipments.forEach(s=>{if(s.carrierId>i)s.carrierId-=1});
+     save(); renderAll();
+   }
+   return;
+ }
+ const complete=e.target.closest('[data-complete-shipment]');
+ if(complete){
+   const id=Number(complete.dataset.completeShipment);
+   const s=state.shipments.find(x=>Number(x.id)===id);
+   if(!s)return;
+   s.status='تم التسليم';
+   if(s.carrierId!=null && state.carriers[s.carrierId]) state.carriers[s.carrierId].available=true;
+   save(); renderAll();
+ }
+});
+
+
+function localDateTimeValue(d=new Date()){
+ const pad=n=>String(n).padStart(2,'0');
+ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+document.addEventListener('click',e=>{
+ const add=e.target.closest('[data-add-payment]');
+ if(add){
+   const id=Number(add.dataset.addPayment), c=state.customers[id]; if(!c)return;
+   $('paymentCustomerId').value=id;
+   $('paymentCustomerTitle').textContent=`تسجيل دفعة — ${c.name}`;
+   $('paymentAmount').value='';
+   $('paymentDate').value=localDateTimeValue();
+   $('paymentNote').value='';
+   $('paymentPanel').style.display='block';
+   $('paymentPanel').scrollIntoView({behavior:'smooth',block:'start'});
+   return;
+ }
+ const pr=e.target.closest('[data-print-customer]');
+ if(pr){ printCustomerAccount(Number(pr.dataset.printCustomer)); return; }
+});
+$('closePaymentPanel').addEventListener('click',()=>{$('paymentPanel').style.display='none';});
+$('customerPaymentForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const customerId=Number($('paymentCustomerId').value);
+ const amount=r2(num($('paymentAmount').value));
+ const rawDate=$('paymentDate').value;
+ const note=$('paymentNote').value.trim();
+ if(!state.customers[customerId]||amount<=0||!rawDate)return;
+ const d=new Date(rawDate);
+ state.customerPayments.push({
+   id:Date.now(),
+   customerId,
+   amount,
+   date:Number.isNaN(d.getTime())?rawDate:d.toISOString(),
+   note,
+   createdAt:new Date().toISOString()
+ });
+ save();
+ $('paymentPanel').style.display='none';
+ renderAll();
+ alert('تم تسجيل دفعة الزبون وتحديث الرصيد.');
+});
+
+
+document.addEventListener('click',e=>{
+ const ed=e.target.closest('[data-edit-payment]'); if(ed){
+   const p=state.customerPayments.find(x=>Number(x.id)===Number(ed.dataset.editPayment)); if(!p)return;
+   const amount=prompt('المبلغ الجديد للدفعة:',String(p.amount??0)); if(amount===null)return; const v=r2(num(amount)); if(v<0){alert('المبلغ غير صالح');return}
+   const note=prompt('ملاحظة الدفعة:',p.note||''); if(note===null)return;
+   p.amount=v; p.note=note.trim(); save(); renderAll(); return;
+ }
+ const del=e.target.closest('[data-delete-payment]'); if(del){
+   const idx=state.customerPayments.findIndex(x=>Number(x.id)===Number(del.dataset.deletePayment)); if(idx<0)return;
+   if(confirm('حذف هذه الدفعة من حساب الزبون؟')&&confirm('تأكيد أخير: حذف الدفعة نهائيًا؟')){state.customerPayments.splice(idx,1);save();renderAll()} return;
+ }
+});
+
+let editingCustomerIndex=null;
+
+$('customerForm').addEventListener('submit',e=>{
+ e.preventDefault();
+ const name=$('customerName').value.trim();
+ const phone=$('customerPhone').value.trim();
+ if(!name||!phone)return;
+ if(editingCustomerIndex===null){
+   state.customers.push({name,phone});
+ }else{
+   state.customers[editingCustomerIndex]={name,phone};
+ }
+ save();
+ editingCustomerIndex=null;
+ e.target.reset();
+ $('saveCustomerBtn').textContent='إضافة الزبون';
+ $('cancelCustomerEdit').style.display='none';
+ renderAll();
+});
+
+$('cancelCustomerEdit').addEventListener('click',()=>{
+ editingCustomerIndex=null;
+ $('customerForm').reset();
+ $('saveCustomerBtn').textContent='إضافة الزبون';
+ $('cancelCustomerEdit').style.display='none';
+});
+
+document.addEventListener('click',e=>{
+ const edit=e.target.closest('[data-edit-customer]');
+ if(edit){
+   const i=Number(edit.dataset.editCustomer), c=state.customers[i];
+   if(!c)return;
+   editingCustomerIndex=i;
+   $('customerName').value=c.name;
+   $('customerPhone').value=c.phone||'';
+   $('saveCustomerBtn').textContent='حفظ التعديل';
+   $('cancelCustomerEdit').style.display='inline-block';
+   document.querySelector('[data-view="customerManage"]').click();
+   return;
+ }
+ const del=e.target.closest('[data-delete-customer]');
+ if(del){
+   const i=Number(del.dataset.deleteCustomer), c=state.customers[i];
+   if(!c)return;
+   const used=state.shipments.some(s=>s.customerId===i)||state.customerPayments.some(p=>p.customerId===i);
+   if(used){alert('لا يمكن حذف هذا الزبون لأنه مرتبط بشحنات مسجلة. يمكنك تعديل بياناته بدلًا من حذفه.');return}
+   if(confirm(`تأكيد الحذف: هل تريد حذف الزبون ${c.name}؟\nلا يمكن التراجع عن هذه العملية.`) && confirm('تأكيد أخير: حذف الزبون نهائيًا؟')){
+     state.customers.splice(i,1);
+     state.shipments.forEach(s=>{if(s.customerId>i)s.customerId-=1});
+     state.customerPayments.forEach(p=>{if(p.customerId>i)p.customerId-=1});
+     save(); renderAll();
+   }
+ }
+});
+
+$('toggleCustomerDebt').addEventListener('click',()=>{
+ const box=$('homeCustomerDebtDetails');
+ const open=box.style.display!=='none';
+ box.style.display=open?'none':'block';
+ $('toggleCustomerDebt').textContent=open?'عرض ديون كل زبون':'إخفاء التفاصيل';
+});
+
+document.addEventListener('click',e=>{
+ const saveBtn=e.target.closest('[data-save-stock]');
+ if(saveBtn){
+   const fi=Number(saveBtn.dataset.saveStock), type=saveBtn.dataset.type;
+   const qtyInput=document.querySelector(`[data-edit-stock-qty="${fi}"][data-type="${type}"]`);
+   const priceInput=document.querySelector(`[data-edit-stock-price="${fi}"][data-type="${type}"]`);
+   if(!state.factories[fi]||!qtyInput||!priceInput)return;
+   state.factories[fi].stocks[type].qty=int(qtyInput.value);
+   state.factories[fi].stocks[type].price=r2(num(priceInput.value));
+   save(); renderAll(); alert('تم حفظ المخزون الحقيقي للمصنع.');
+   return;
+ }
+ const plus=e.target.closest('[data-plus-pallet]');
+ if(plus){
+   const fi=Number(plus.dataset.plusPallet), type=plus.dataset.type;
+   state.factories[fi].stocks[type].qty+=PALLET_SIZE[type];
+   save(); renderAll(); return;
+ }
+ const minus=e.target.closest('[data-minus-pallet]');
+ if(minus){
+   const fi=Number(minus.dataset.minusPallet), type=minus.dataset.type;
+   state.factories[fi].stocks[type].qty=Math.max(0,state.factories[fi].stocks[type].qty-PALLET_SIZE[type]);
+   save(); renderAll(); return;
+ }
+});
+
+$('exportBtn').addEventListener('click',()=>{
+ const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`ajer-backup-${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
+});
+$('importFile').addEventListener('change',async e=>{
+ const file=e.target.files[0]; if(!file)return;
+ try{const data=JSON.parse(await file.text()); if(!data.factories||!data.shipments)throw new Error(); state=data; if(!Array.isArray(state.customers))state.customers=[]; if(!Array.isArray(state.carriers))state.carriers=[]; if(!Array.isArray(state.customerPayments))state.customerPayments=[];
+if(!Array.isArray(state.factoryPurchases))state.factoryPurchases=[];
+if(!Array.isArray(state.factoryPayments))state.factoryPayments=[];
+if(!Array.isArray(state.orders))state.orders=[];
+if(!Array.isArray(state.savedPlaces))state.savedPlaces=[];
+normalizeShipmentNumbers(); save(); renderAll(); alert('تمت استعادة النسخة بنجاح');}catch{alert('ملف النسخة الاحتياطية غير صالح')}
+ e.target.value='';
+});
+$('resetBtn').addEventListener('click',()=>{
+ if(confirm('تحذير: هذا سيمسح كل بيانات التطبيق من هذا الجهاز. هل تريد المتابعة؟') && confirm('تأكيد أخير: هل أنت متأكد من مسح كل البيانات نهائيًا؟')){state=defaultState();save();renderAll()}
+});
+
+renderAll();
+if($('orderDate')) $('orderDate').value=localDateTimeValue();
+if($('factoryPaymentDate')) $('factoryPaymentDate').value=localDateTimeValue();
+syncOrderQty(); syncStockForm(); syncShipmentPallets();
+applySmartOrderDefaults(false); applySmartShipmentDefaults(false);
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+
+</body>
+</html>
