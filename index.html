@@ -159,7 +159,7 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;bor
           <label>مقدم للناقل قبل الانطلاق<input id="advance" type="number" min="0" step="0.01" value="0"></label>
           <label>الناقل المتاح<select id="carrier"></select></label>
           <label>هاتف الناقل<input id="carrierPhone" readonly></label>
-          <label>لوحة الشاحنة<input id="truck" readonly></label>
+          <label>لوحة الشاحنة<select id="truck"></select></label>
         </form>
         <div id="preview" class="notice" style="margin-top:12px"></div>
         <div class="row" style="margin-top:12px"><button id="confirmShipment" class="btn primary" type="button">تأكيد الشحنة</button><span id="shipMsg" class="small"></span></div>
@@ -207,7 +207,7 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:10px;bor
         <h2 class="section-title">إدارة الناقلين</h2>
         <form id="carrierForm" class="grid g4">
           <label>اسم الناقل / السائق<input id="carrierManageName" required></label>
-          <label>رقم الهاتف<input id="carrierManagePhone" inputmode="tel" placeholder="مثال: 0550 00 00 00" required></label>
+          <label>رقم الهاتف (اختياري)<input id="carrierManagePhone" inputmode="tel" placeholder="أضفه لاحقًا إن أردت"></label>
           <label>لوحة الشاحنة<input id="carrierManagePlate" required></label>
           <div class="row" style="align-items:end">
             <button id="saveCarrierBtn" class="btn primary" type="submit">إضافة الناقل</button>
@@ -242,6 +242,74 @@ const num=v=>Math.max(0,parseFloat(v)||0);
 const int=v=>Math.max(0,Math.floor(Number(v)||0));
 const r2=v=>Math.round((Number(v)+Number.EPSILON)*100)/100;
 const PALLET_SIZE={'آجر 12':116,'آجر 8':176};
+const CARRIER_ARABIC_NAMES={
+"AICH KAMEL":"عيش كمال",
+"AOUDJERA MOHAMMED":"عوجرة محمد",
+"AZIZI NOUREDDIN":"عزيزي نور الدين",
+"BEN DJOUDI AYMEN":"بن جودي أيمن",
+"BEN DJOUDI DJAMEL":"بن جودي جمال",
+"BEN DJOUDI LAHCEN":"بن جودي لحسن",
+"BEN DJOUDI MOHAMMED":"بن جودي محمد",
+"BEN KOURAICHI SALIM":"بن قريشي سليم",
+"BOUAZIZ CHAABAN":"بوعزيز شعبان",
+"BOUDOUDA BEN AMOUR":"بودودة بن عمور",
+"BOUZID DJILALI":"بوزيد جيلالي",
+"CHIKHE ABDELHAK":"شيخ عبد الحق",
+"DAHDI AHMED":"دهدي أحمد",
+"DELAH REDA":"دلاح رضا",
+"GANDOUZ GHIHI":"قندوز غيهي",
+"HABALE ABDELLAH":"حبال عبد الله",
+"HAFID NASER":"حافيد ناصر",
+"HAFIDI ABDELLAH":"حافيدي عبد الله",
+"HATEM HMISSI":"حاتم حميسي",
+"MAELOEFI YASAF":"معلوفي يوسف",
+"MAJAHD MASTAFA":"مجاهد مصطفى",
+"MELAKHSOU HAMZA":"ملاخصو حمزة",
+"MOURAD MEKKI":"مراد مكي",
+"OKBI NOUREDDINE":"عقبي نور الدين",
+"SAADI ABDELHAK":"سعدي عبد الحق",
+"SALMANI ABDELFATAH":"سلماني عبد الفتاح",
+"TAIB BAY":"طيب باي",
+"TAIB RACHID":"طيب رشيد",
+"TAYEB BAY NABIL":"طيب باي نبيل",
+"WADAH BILALE":"وضاح بلال",
+"WANAS BILAL":"وناس بلال",
+"ZAROUKI AMER":"زروقي عامر"
+};
+const PRELOADED_CARRIERS=[
+{"name":"عيش كمال","plates":["08280-582-28"],"phone":""},
+{"name":"عوجرة محمد","plates":["000188-507-05"],"phone":""},
+{"name":"عزيزي نور الدين","plates":["000348-592-28"],"phone":""},
+{"name":"بن جودي أيمن","plates":["005789-584-28","005879-584-28"],"phone":""},
+{"name":"بن جودي جمال","plates":["500541-583-28"],"phone":""},
+{"name":"بن جودي لحسن","plates":["009457-510-28"],"phone":""},
+{"name":"بن جودي محمد","plates":["018979-583-28"],"phone":""},
+{"name":"بن قريشي سليم","plates":["000536-512-05"],"phone":""},
+{"name":"بوعزيز شعبان","plates":["010289-583-28"],"phone":""},
+{"name":"بودودة بن عمور","plates":["002109-585-03"],"phone":""},
+{"name":"بوزيد جيلالي","plates":["006504-587-28"],"phone":""},
+{"name":"حاتم حميسي","plates":["003547-594-28"],"phone":""},
+{"name":"حافيد ناصر","plates":["04628-584-05"],"phone":""},
+{"name":"حافيدي عبد الله","plates":["006582-583-28","009582-583-28"],"phone":""},
+{"name":"حبال عبد الله","plates":["007306-595-28"],"phone":""},
+{"name":"دلاح رضا","plates":["500001-594-12"],"phone":""},
+{"name":"دهدي أحمد","plates":["000008-513-55"],"phone":""},
+{"name":"زروقي عامر","plates":["011050-588-28"],"phone":""},
+{"name":"سعدي عبد الحق","plates":["019611-508-28"],"phone":""},
+{"name":"سلماني عبد الفتاح","plates":["000498-511-05"],"phone":""},
+{"name":"شيخ عبد الحق","plates":["06481-588-28"],"phone":""},
+{"name":"طيب باي","plates":["012149-590-28"],"phone":""},
+{"name":"طيب باي نبيل","plates":["007212-586-28"],"phone":""},
+{"name":"طيب رشيد","plates":["013135-506-28","08602-583-03","08602-583-28"],"phone":""},
+{"name":"عقبي نور الدين","plates":["012420-587-28"],"phone":""},
+{"name":"قندوز غيهي","plates":["08569-508-28"],"phone":""},
+{"name":"معلوفي يوسف","plates":["00261-513-30"],"phone":""},
+{"name":"مجاهد مصطفى","plates":["001429-592-47"],"phone":""},
+{"name":"مراد مكي","plates":["010818-588-28"],"phone":""},
+{"name":"ملاخصو حمزة","plates":["000068-503-05"],"phone":""},
+{"name":"وضاح بلال","plates":["008957-591-28"],"phone":""},
+{"name":"وناس بلال","plates":["08744-507-28"],"phone":""}
+];
 const palletsFromPieces=(type,pieces)=>pieces/PALLET_SIZE[type];
 const piecesFromPallets=(type,pallets)=>Math.round((Number(pallets)||0)*PALLET_SIZE[type]);
 
@@ -255,6 +323,34 @@ if(!Array.isArray(state.factoryPurchases)) state.factoryPurchases=[];
 if(!Array.isArray(state.factoryPayments)) state.factoryPayments=[];
 if(!Array.isArray(state.orders)) state.orders=[];
 if(!Array.isArray(state.savedPlaces)) state.savedPlaces=[];
+// تحديث قائمة الناقلين دون حذف بيانات الناقلين الموجودة على الهاتف.
+state.carriers.forEach(c=>{const k=String(c?.name||'').trim().replace(/\s+/g,' ').toUpperCase();if(CARRIER_ARABIC_NAMES[k])c.name=CARRIER_ARABIC_NAMES[k]});
+function normCarrierName(v){return String(v||'').trim().replace(/\s+/g,' ').toUpperCase()}
+function splitCarrierPlates(c){
+ const raw=Array.isArray(c?.plates)?c.plates:String(c?.plate||'').split('/');
+ return [...new Set(raw.map(x=>String(x||'').trim()).filter(Boolean))];
+}
+function mergePreloadedCarriers(){
+ PRELOADED_CARRIERS.forEach(seed=>{
+   const seedName=normCarrierName(seed.name);
+   let c=state.carriers.find(x=>normCarrierName(x.name)===seedName);
+   // مطابقة إضافية حسب اللوحة مع الحفاظ على الاسم والهاتف الموجودين لدى المستخدم.
+   if(!c){
+     c=state.carriers.find(x=>splitCarrierPlates(x).some(p=>(seed.plates||[]).includes(p)));
+   }
+   if(!c){
+     const plates=[...new Set(seed.plates||[])];
+     state.carriers.push({name:seed.name,phone:'',plates,plate:plates.join(' / '),available:true});
+     return;
+   }
+   const plates=[...new Set([...splitCarrierPlates(c),...(seed.plates||[])])];
+   c.plates=plates; c.plate=plates.join(' / ');
+   if(c.phone==null)c.phone='';
+   if(c.available==null)c.available=true;
+ });
+ localStorage.setItem(KEY,JSON.stringify(state));
+}
+mergePreloadedCarriers();
 
 function factoryPurchases(fi){return state.factoryPurchases.filter(x=>x.factory===fi)}
 function factoryPayments(fi){return state.factoryPayments.filter(x=>x.factory===fi)}
@@ -532,14 +628,18 @@ function fillCarriers(){
 
 function syncCarrierDetails(){
  const value=$('carrier').value;
+ const truckEl=$('truck');
  if(value===''){
    if($('carrierPhone')) $('carrierPhone').value='';
-   if($('truck')) $('truck').value='';
+   if(truckEl) truckEl.innerHTML='<option value="">-</option>';
    return;
  }
  const c=state.carriers[Number(value)];
  if($('carrierPhone')) $('carrierPhone').value=c?.phone||'';
- if($('truck')) $('truck').value=c?.plate||'';
+ if(truckEl){
+   const plates=splitCarrierPlates(c);
+   truckEl.innerHTML=plates.length?plates.map(p=>`<option value="${esc(p)}">${esc(p)}</option>`).join(''):'<option value="">-</option>';
+ }
 }
 function currentStock(){
  const fi=$('shipFactory').value;
@@ -681,12 +781,13 @@ function renderCustomers(){
 
 
 function renderCarrierManage(){
- $('carrierManageRows').innerHTML=state.carriers.length?state.carriers.map((c,i)=>`
+ const sortedCarriers=state.carriers.map((c,i)=>({c,i})).sort((a,b)=>String(a.c.name||'').localeCompare(String(b.c.name||''),'ar',{sensitivity:'base'}));
+ $('carrierManageRows').innerHTML=sortedCarriers.length?sortedCarriers.map(({c,i})=>`
    <div class="item">
      <div class="row" style="justify-content:space-between">
        <div>
          <h3>${c.name}</h3>
-         <div class="small muted">الهاتف: ${c.phone||'-'} • أماكن التفريغ: ${esc(carrierPlaces(i).join('، ')||'-')} • اللوحة: ${c.plate||'-'}</div>
+         <div class="small muted">الهاتف: ${c.phone||'غير مضاف'} • أماكن التفريغ: ${esc(carrierPlaces(i).join('، ')||'-')} • اللوحة: ${c.plate||'-'}</div>
          <div class="small ${c.available===false?'danger':'ok'}">الحالة: <strong>${c.available===false?'في مهمة':'متاح'}</strong></div>
        </div>
        <div class="row">
@@ -799,7 +900,7 @@ $('carrier').addEventListener('change',syncCarrierDetails);
 ['transport','advance','customerUnitPrice'].forEach(id=>$(id).addEventListener('input',preview));
 
 $('confirmShipment').addEventListener('click',()=>{
- const customerId=$('customer').value===''?null:Number($('customer').value), place=$('shipmentPlace').value.trim(), orderId=$('shipmentOrder').value||null, carrierId=$('carrier').value===''?null:Number($('carrier').value), carrierObj=carrierId===null?null:state.carriers[carrierId], carrier=carrierObj?.name||'', truck=carrierObj?.plate||'';
+ const customerId=$('customer').value===''?null:Number($('customer').value), place=$('shipmentPlace').value.trim(), orderId=$('shipmentOrder').value||null, carrierId=$('carrier').value===''?null:Number($('carrier').value), carrierObj=carrierId===null?null:state.carriers[carrierId], carrier=carrierObj?.name||'', truck=$('truck')?.value||splitCarrierPlates(carrierObj)[0]||'';
  const fi=Number($('shipFactory').value), type=$('brickType').value, stock=state.factories[fi]?.stocks[type], c=calc();
  $('shipMsg').textContent='';
  if(!state.factories.length){$('shipMsg').textContent='أضف مصنعًا وأدخل مخزونه أولًا.';return}
@@ -884,19 +985,24 @@ $('carrierForm').addEventListener('submit',e=>{
  const name=$('carrierManageName').value.trim();
  const phone=$('carrierManagePhone').value.trim();
  const plate=$('carrierManagePlate').value.trim();
- if(!name||!phone||!plate)return;
+ if(!name||!plate)return;
+ const plates=[...new Set(plate.split('/').map(x=>x.trim()).filter(Boolean))];
  if(editingCarrierIndex===null){
-   state.carriers.push({name,phone,plate,available:true});
+   const existingIndex=state.carriers.findIndex(c=>normCarrierName(c.name)===normCarrierName(name));
+   if(existingIndex>=0){
+     const old=state.carriers[existingIndex];
+     const merged=[...new Set([...splitCarrierPlates(old),...plates])];
+     old.plates=merged; old.plate=merged.join(' / ');
+     if(phone) old.phone=phone;
+   }else{
+     state.carriers.push({name,phone,plates,plate:plates.join(' / '),available:true});
+   }
  }else{
    const old=state.carriers[editingCarrierIndex];
-   state.carriers[editingCarrierIndex]={name,phone,plate,available:old.available!==false};
+   state.carriers[editingCarrierIndex]={name,phone,plates,plate:plates.join(' / '),available:old.available!==false};
  }
- save();
- editingCarrierIndex=null;
- e.target.reset();
- $('saveCarrierBtn').textContent='إضافة الناقل';
- $('cancelCarrierEdit').style.display='none';
- renderAll();
+ save(); editingCarrierIndex=null; e.target.reset();
+ $('saveCarrierBtn').textContent='إضافة الناقل'; $('cancelCarrierEdit').style.display='none'; renderAll();
 });
 
 $('cancelCarrierEdit').addEventListener('click',()=>{
