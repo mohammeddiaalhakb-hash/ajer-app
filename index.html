@@ -504,11 +504,17 @@ function nextFactoryShipmentNo(factoryIndex){
 function carrierShipments(carrierId){
   return state.shipments.filter(s=>s.carrierId===carrierId);
 }
+function carrierPurchaseShipments(carrierId){
+  return state.shipments.filter(s=>s.buyerType==='carrier' && Number(s.buyerCarrierId)===Number(carrierId));
+}
+function carrierPurchaseDebt(carrierId){
+  return r2(carrierPurchaseShipments(carrierId).reduce((a,s)=>a+(Number(s.carrierSaleAmount)||0),0));
+}
 function carrierPlaces(carrierId){
   return [...new Set(carrierShipments(carrierId).map(s=>s.place).filter(Boolean))];
 }
 function customerShipments(customerId){
-  return state.shipments.filter(s=>s.customerId===customerId);
+  return state.shipments.filter(s=>s.customerId===customerId && s.buyerType!=='carrier');
 }
 function customerPayments(customerId){
   return state.customerPayments.filter(p=>p.customerId===customerId);
@@ -747,23 +753,25 @@ function renderCustomers(){
    const paid=customerPaid(id);
    const bal=customerBalance(id);
    const ledger=customerLedger(id);
-   const ledgerRows=ledger.slice().reverse().map(r=>`
-     <tr>
-       <td>${fmtDate(r.date)}</td>
-       <td>${esc(r.description)}</td>
-       <td>${r.debit?money(r.debit):'-'}</td>
-       <td>${r.credit?money(r.credit):'-'}</td>
-       <td>${r.running>0?`دين ${money(r.running)}`:r.running<0?`رصيد ${money(Math.abs(r.running))}`:money(0)}</td>
-       <td>${r.type==='payment'?`<button type="button" class="btn" data-edit-payment="${r.refId}">تعديل الدفعة</button> <button type="button" class="btn" data-delete-payment="${r.refId}">حذف الدفعة</button>`:r.type==='shipment'?`<button type="button" class="btn" data-edit-shipment="${r.refId}">تعديل الشحنة</button> <button type="button" class="btn" data-delete-shipment="${r.refId}">حذف الشحنة</button>`:''}</td>
-     </tr>`).join('');
+   const ledgerCards=ledger.slice().reverse().map(r=>`
+     <div class="item" style="margin-top:10px">
+       <div class="small muted">${fmtDate(r.date)}</div>
+       <div style="font-weight:700;margin-top:4px">${esc(r.description)}</div>
+       <div class="grid g3" style="margin-top:8px">
+         <div class="notice small">مدين<br><strong>${r.debit?money(r.debit):'-'}</strong></div>
+         <div class="notice small">دائن / دفعة<br><strong>${r.credit?money(r.credit):'-'}</strong></div>
+         <div class="notice small">الرصيد بعد الحركة<br><strong>${r.running>0?`دين ${money(r.running)}`:r.running<0?`رصيد ${money(Math.abs(r.running))}`:money(0)}</strong></div>
+       </div>
+       <div class="row" style="margin-top:8px">
+         ${r.type==='payment'?`<button type="button" class="btn" data-edit-payment="${r.refId}">تعديل الدفعة</button><button type="button" class="btn" data-delete-payment="${r.refId}">حذف الدفعة</button>`:r.type==='shipment'?`<button type="button" class="btn primary" data-change-destination="${r.refId}">تغيير الوجهة</button><button type="button" class="btn" data-sell-carrier="${r.refId}">بيع للناقل</button><button type="button" class="btn" data-edit-shipment="${r.refId}">تعديل الشحنة</button><button type="button" class="btn" data-delete-shipment="${r.refId}">حذف الشحنة</button>`:''}
+       </div>
+     </div>`).join('');
    return `<div class="item">
      <div class="row" style="justify-content:space-between;align-items:flex-start">
        <div><h3>${esc(c.name)}</h3><div class="small muted">الهاتف: ${esc(c.phone||'-')}</div><div class="small muted">أماكن التفريغ: ${esc([...new Set(ss.map(s=>s.place).filter(Boolean))].join('، ')||'-')}</div></div>
        <div class="row">
          <button type="button" class="btn primary" data-add-payment="${id}">تسجيل دفعة</button>
          <button type="button" class="btn" data-print-customer="${id}">طباعة كشف الحساب</button>
-         <button type="button" class="btn" data-edit-customer="${id}">تعديل</button>
-         <button type="button" class="btn" data-delete-customer="${id}">حذف</button>
        </div>
      </div>
      <div class="grid g3" style="margin-top:10px">
@@ -775,10 +783,7 @@ function renderCustomers(){
      </div>
      <details style="margin-top:12px">
        <summary style="cursor:pointer;font-weight:700">عرض كشف الحساب الكامل بالتاريخ (${ledger.length} حركة)</summary>
-       <div class="scroll" style="margin-top:10px"><table>
-         <thead><tr><th>التاريخ والوقت</th><th>البيان</th><th>مدين</th><th>دائن / دفعة</th><th>الرصيد بعد الحركة</th><th>إجراء</th></tr></thead>
-         <tbody>${ledgerRows||'<tr><td colspan="6">لا توجد حركات بعد.</td></tr>'}</tbody>
-       </table></div>
+       <div style="margin-top:10px">${ledgerCards||'<div class="muted">لا توجد حركات بعد.</div>'}</div>
      </details>
    </div>`;
  }).join(''):'<div class="muted">لا يوجد زبائن بعد.</div>';
@@ -814,7 +819,8 @@ function renderCarriers(){
    const total=ss.reduce((a,s)=>a+s.transport,0);
    const adv=ss.reduce((a,s)=>a+s.advance,0);
    const arr=ss.reduce((a,s)=>a+s.arrival,0);
-   return `<div class="item"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>${name}</h3><div class="small muted">${phone?`الهاتف: ${phone}`:''}${plate?` • اللوحة: ${plate}`:''}</div></div>${typeof id==='number'?`<div class="row"><button type="button" class="btn" data-edit-carrier="${id}">تعديل</button><button type="button" class="btn" data-delete-carrier="${id}">حذف</button></div>`:''}</div><div class="small">حق النقل الكامل: <strong>${money(total)}</strong></div><div class="small">مدفوع قبل الانطلاق: <strong>${money(adv)}</strong></div><div class="small">دفع الزبائن عند الوصول: <strong>${money(arr)}</strong></div></div>`;
+   const purchaseDebt=carrierPurchaseDebt(id);
+   return `<div class="item"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h3>${name}</h3><div class="small muted">${phone?`الهاتف: ${phone}`:''}${plate?` • اللوحة: ${plate}`:''}</div></div>${typeof id==='number'?`<div class="row"><button type="button" class="btn" data-edit-carrier="${id}">تعديل</button><button type="button" class="btn" data-delete-carrier="${id}">حذف</button></div>`:''}</div><div class="small">حق النقل الكامل: <strong>${money(total)}</strong></div><div class="small">مدفوع قبل الانطلاق: <strong>${money(adv)}</strong></div><div class="small">دفع الزبائن عند الوصول: <strong>${money(arr)}</strong></div>${purchaseDebt>0?`<div class="notice small" style="margin-top:8px">قيمة آجر اشتراه الناقل: <strong>${money(purchaseDebt)}</strong></div>`:''}</div>`;
  }).join(''):'<div class="muted">لا توجد حسابات ناقلين بعد.</div>';
 }
 
@@ -919,7 +925,6 @@ $('confirmShipment').addEventListener('click',()=>{
  const availableBefore=Math.max(0,Number(stock.qty)||0);
  const stockDebtQty=Math.max(0,c.quantity-availableBefore);
  const stockDebtAmount=r2(stockDebtQty*c.buy);
- stock.qty-=c.quantity;
  let shipmentNo, factoryShipmentNo;
  if(editingShipmentId!==null){
    const idx=state.shipments.findIndex(x=>Number(x.id)===Number(editingShipmentId));
@@ -933,17 +938,18 @@ $('confirmShipment').addEventListener('click',()=>{
    const avail=Math.max(0,Number(newStock?.qty)||0), newDebtQty=Math.max(0,c.quantity-avail), newDebtAmount=r2(newDebtQty*c.buy);
    if(newStock) newStock.qty-=c.quantity;
    if(old.carrierId!=null && state.carriers[old.carrierId] && (old.status||'في مهمة')==='في مهمة') state.carriers[old.carrierId].available=true;
-   state.shipments[idx]={...old,customerId,customer:state.customers[customerId].name,place,orderId,carrierId,factory:fi,type,pallets:num($('shipPallets').value),qty:c.quantity,buy:c.buy,customerUnitPrice:c.customerUnitPrice,inclusive:c.inclusive,transport:c.transport,advance:c.advance,arrival:c.arrival,debt:c.debt,factoryCost:c.factoryCost,brickRevenue:c.brickRevenue,profit:c.profit,stockDebtQty:newDebtQty,stockDebtAmount:newDebtAmount,carrier,truck};
+   state.shipments[idx]={...old,customerId,customer:state.customers[customerId].name,place,orderId,carrierId,factory:fi,type,pallets:num($('shipPallets').value),qty:c.quantity,buy:c.buy,customerUnitPrice:c.customerUnitPrice,inclusive:c.inclusive,transport:c.transport,advance:c.advance,arrival:c.arrival,debt:c.debt,factoryCost:c.factoryCost,brickRevenue:c.brickRevenue,profit:c.profit,stockDebtQty:newDebtQty,stockDebtAmount:newDebtAmount,carrier,truck,buyerType:'customer',buyerCarrierId:null,carrierSaleAmount:0};
    if((old.status||'في مهمة')==='في مهمة') carrierObj.available=false;
    editingShipmentId=null; $('confirmShipment').textContent='تأكيد الشحنة';
    rememberPlace(place,customerId); save(); $('shipMsg').textContent=`تم حفظ تعديل الشحنة #${shipmentNo}.`; renderAll(); return;
  }
+ stock.qty-=c.quantity;
  shipmentNo=nextShipmentNo(); factoryShipmentNo=nextFactoryShipmentNo(fi);
  state.shipments.push({
    id:Date.now(), shipmentNo, factoryShipmentNo, customerId, customer:state.customers[customerId].name, place, orderId, carrierId, factory:fi, type, pallets:num($('shipPallets').value), qty:c.quantity,
    buy:c.buy, customerUnitPrice:c.customerUnitPrice, inclusive:c.inclusive, transport:c.transport, advance:c.advance,
    arrival:c.arrival, debt:c.debt, factoryCost:c.factoryCost, brickRevenue:c.brickRevenue,
-   profit:c.profit, stockDebtQty, stockDebtAmount, carrier, truck, status:'في مهمة', createdAt:new Date().toISOString()
+   profit:c.profit, stockDebtQty, stockDebtAmount, carrier, truck, buyerType:'customer', buyerCarrierId:null, carrierSaleAmount:0, status:'في مهمة', createdAt:new Date().toISOString()
  });
  rememberPlace(place,customerId); carrierObj.available=false; if(orderId){const o=state.orders.find(x=>String(x.id)===String(orderId));if(o)o.status='خرجت كشحنة';} save(); $('shipMsg').textContent=`تم تسجيل الشحنة #${shipmentNo}، والناقل الآن في مهمة ولن يظهر في قائمة المتاحين.`; renderAll();
 });
@@ -1012,7 +1018,36 @@ function loadShipmentForEdit(id){
  syncBuy(); syncCarrierDetails(); syncShipmentPallets(); $('confirmShipment').textContent=`حفظ تعديل الشحنة #${s.shipmentNo||'-'}`; $('shipMsg').textContent='أنت الآن تعدّل شحنة مسجلة. سيتم تحديث الحسابات والمخزون تلقائيًا.';
  document.querySelector('[data-view="shipments"]').click(); window.scrollTo({top:0,behavior:'smooth'});
 }
+function changeShipmentDestination(id){
+ const s=state.shipments.find(x=>Number(x.id)===Number(id)); if(!s)return;
+ const options=state.customers.map((c,i)=>`${i+1}. ${c.name}`).join('\n');
+ const ans=prompt(`اختر رقم الزبون الجديد للشحنة #${s.shipmentNo||'-'}:\n${options}`, String((s.customerId??0)+1));
+ if(ans===null)return; const newId=Number(ans)-1; if(!state.customers[newId]){alert('رقم الزبون غير صحيح.');return}
+ const newPlace=prompt('مكان التفريغ الجديد:', lastPlaceForCustomer(newId)||s.place||''); if(newPlace===null||!newPlace.trim())return;
+ const oldName=s.customerId!=null?state.customers[s.customerId]?.name:(s.customer||'-');
+ const oldPlace=s.place||'-';
+ s.customerId=newId; s.customer=state.customers[newId].name; s.place=normalizePlace(newPlace); s.buyerType='customer'; s.buyerCarrierId=null; s.carrierSaleAmount=0;
+ s.routeChanges=Array.isArray(s.routeChanges)?s.routeChanges:[];
+ s.routeChanges.push({date:new Date().toISOString(),fromCustomer:oldName,fromPlace:oldPlace,toCustomer:s.customer,toPlace:s.place});
+ rememberPlace(s.place,newId); save(); renderAll(); alert(`تم تغيير وجهة الشحنة #${s.shipmentNo||'-'} إلى ${s.customer}.`);
+}
+function sellShipmentToCarrier(id){
+ const s=state.shipments.find(x=>Number(x.id)===Number(id)); if(!s)return;
+ const cid=s.carrierId; const c=state.carriers[cid]; if(cid==null||!c){alert('هذه الشحنة غير مرتبطة بناقل مسجل.');return}
+ const suggested=Number(s.inclusive)||0;
+ const ans=prompt(`سعر بيع الآجر للناقل ${c.name}:`,String(suggested)); if(ans===null)return;
+ const amount=r2(num(ans)); if(amount<0){alert('السعر غير صالح.');return}
+ if(!confirm(`تحويل الشحنة #${s.shipmentNo||'-'} من حساب الزبون إلى حساب الناقل ${c.name} بقيمة ${money(amount)}؟`))return;
+ const oldCustomer=s.customerId!=null?state.customers[s.customerId]?.name:(s.customer||'-');
+ s.buyerType='carrier'; s.buyerCarrierId=cid; s.carrierSaleAmount=amount; s.previousCustomerId=s.customerId; s.previousCustomer=oldCustomer;
+ s.customerId=null; s.customer=`الناقل: ${c.name}`; s.debt=0;
+ s.routeChanges=Array.isArray(s.routeChanges)?s.routeChanges:[];
+ s.routeChanges.push({date:new Date().toISOString(),fromCustomer:oldCustomer,toCarrier:c.name,action:'بيع للناقل'});
+ save(); renderAll(); alert('تم نقل قيمة الشحنة من حساب الزبون إلى حساب الناقل. حق النقل بقي منفصلًا.');
+}
 document.addEventListener('click',e=>{
+ const cd=e.target.closest('[data-change-destination]'); if(cd){changeShipmentDestination(cd.dataset.changeDestination);return}
+ const sc=e.target.closest('[data-sell-carrier]'); if(sc){sellShipmentToCarrier(sc.dataset.sellCarrier);return}
  const ed=e.target.closest('[data-edit-shipment]'); if(ed){loadShipmentForEdit(ed.dataset.editShipment);return}
  const del=e.target.closest('[data-delete-shipment]'); if(del){
    const id=Number(del.dataset.deleteShipment), idx=state.shipments.findIndex(x=>Number(x.id)===id); if(idx<0)return; const s=state.shipments[idx];
