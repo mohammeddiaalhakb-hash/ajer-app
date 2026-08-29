@@ -754,7 +754,7 @@ function renderCustomers(){
        <td>${r.debit?money(r.debit):'-'}</td>
        <td>${r.credit?money(r.credit):'-'}</td>
        <td>${r.running>0?`دين ${money(r.running)}`:r.running<0?`رصيد ${money(Math.abs(r.running))}`:money(0)}</td>
-       <td>${r.type==='payment'?`<button type="button" class="btn" data-edit-payment="${r.refId}">تعديل</button> <button type="button" class="btn" data-delete-payment="${r.refId}">حذف</button>`:r.type==='shipment'?`<button type="button" class="btn" data-edit-shipment="${r.refId}">تعديل الشحنة</button>`:''}</td>
+       <td>${r.type==='payment'?`<button type="button" class="btn" data-edit-payment="${r.refId}">تعديل الدفعة</button> <button type="button" class="btn" data-delete-payment="${r.refId}">حذف الدفعة</button>`:r.type==='shipment'?`<button type="button" class="btn" data-edit-shipment="${r.refId}">تعديل الشحنة</button> <button type="button" class="btn" data-delete-shipment="${r.refId}">حذف الشحنة</button>`:''}</td>
      </tr>`).join('');
    return `<div class="item">
      <div class="row" style="justify-content:space-between;align-items:flex-start">
